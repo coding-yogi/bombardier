@@ -4,17 +4,13 @@ mod parser;
 mod file;
 mod cmd;
 
-//use env_logger;
-
 fn main() {
     env_logger::init();
-    
+
     let args = cmd::get_args()
         .expect("Args validation failed");
 
     info!("Executing Tests ...");
-    //debug flag
-    let debug_flg = true;
 
      // Get scenarios
     info!("Reading collections file");
@@ -33,15 +29,14 @@ fn main() {
         .expect("Failed while pasring JSON");
 
     //DEBUG: Print scenarios
-    if debug_flg {
-        debug!("Logging requests");
-        for scenario in &root.scenarios {
-            println!("{:?}", scenario.request_details);
-            for request in &scenario.requests {
-                //println!("{:?}", request.request_details)
-            }
+    debug!("Logging requests");
+    for scenario in &root.scenarios {
+        println!("{:?}", scenario.request_details);
+        for request in &scenario.requests {
+            debug!("{:?}", request.request_details)
         }
-    }   
+    }
+     
 }
 
 

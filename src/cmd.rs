@@ -34,7 +34,6 @@ pub fn get_args() -> Result<Args, ()> {
     let matches = App::new("Bombardier")
         .version("0.1.0")
         .author("Coding Yogi <aniket.g2185@gmail.com>")
-        //.about("Teaches argument parsing")
         .arg(Arg::with_name(arg_config)
                  .short("c")
                  .takes_value(true)
