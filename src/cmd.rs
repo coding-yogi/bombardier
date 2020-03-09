@@ -4,9 +4,9 @@ use clap::{Arg, App, ArgMatches};
 pub struct Args {
     pub config_file: String,
     pub collection_file: String,
-    pub threads: u32,
-    pub ramp_up: u32,
-    pub execution_time: u32
+    pub threads: u64,
+    pub ramp_up: u64,
+    pub execution_time: u64
 }
 
 pub fn get_args() -> Result<Args, ()> {
@@ -24,9 +24,12 @@ pub fn get_args() -> Result<Args, ()> {
     };
 
     let is_number = |s: String| {
-        match s.parse::<u32>().is_err() {
+        match s.parse::<u64>().is_err() {
             true => Err(String::from("Argument should be a number")),
-            false =>  Ok(())
+            false =>  match s.parse::<u64>().unwrap() {
+                0 => Err(String::from("Argument cannot be 0")),
+                _ => Ok(())
+            }
         }
     };
 
@@ -69,9 +72,9 @@ pub fn get_args() -> Result<Args, ()> {
     let args = Args {
         collection_file: get_value_as_str(&matches, arg_collection),
         config_file: get_value_as_str(&matches, arg_config),
-        threads: get_value_as_u32(&matches, arg_threads),
-        ramp_up: get_value_as_u32(&matches, arg_ramp_up),
-        execution_time: get_value_as_u32(&matches, arg_execution_time)
+        threads: get_value_as_u64(&matches, arg_threads),
+        ramp_up: get_value_as_u64(&matches, arg_ramp_up),
+        execution_time: get_value_as_u64(&matches, arg_execution_time)
     };
 
     //More validations on args
@@ -87,8 +90,8 @@ fn get_value_as_str(matches: &ArgMatches, arg: &str) -> String {
     matches.value_of(arg).unwrap().to_string()
 }
 
-fn get_value_as_u32(matches: &ArgMatches, arg: &str) -> u32 {
+fn get_value_as_u64(matches: &ArgMatches, arg: &str) -> u64 {
     let arg: String = String::from(matches.value_of(arg).unwrap());
-    let uarg: u32 = arg.parse::<u32>().unwrap();
+    let uarg: u64 = arg.parse::<u64>().unwrap();
     uarg
 }

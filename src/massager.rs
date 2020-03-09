@@ -6,14 +6,13 @@ use base64::{encode_config, STANDARD};
 pub fn massage(scenarios: &mut Vec<parser::Scenario>) {
     for scenario in scenarios {
         inject_basic_auth(scenario);
-        debug!("{:?}", scenario);
+        //debug!("{:?}", scenario);
         
         for request in &mut scenario.requests {
             inject_basic_auth(request);
-            debug!("{:?}", request);
+            //debug!("{:?}", request);
         }
     } 
-
 }
 
 fn inject_basic_auth<T: parser::HasRequestDetails>(item: &mut T) {

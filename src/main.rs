@@ -31,5 +31,5 @@ fn main() {
     massager::massage(&mut scenarios);
 
     info!("Executing tests");
-    executor::execute(&args, &scenarios);
+    executor::execute(args, scenarios);
 }
