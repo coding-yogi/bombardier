@@ -10,7 +10,6 @@ pub struct Args {
 }
 
 pub fn get_args() -> Result<Args, ()> {
-
     let arg_config = "config";
     let arg_collection = "collection";
     let arg_threads = "threads";
