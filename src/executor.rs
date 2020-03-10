@@ -7,19 +7,18 @@ use std::ops::Deref;
 
 use log::{info, debug};
 
-pub fn execute(args: cmd::Args, scenarios: Vec<parser::Scenario>) {
+pub fn execute(args: cmd::Args, requests: Vec<parser::BombardierRequest>) {
 
     let thread_delay = calc_thread_delay(&args.threads, &args.ramp_up);
-    let scenarios_arc = Arc::new(scenarios);
+    let requests = Arc::new(requests);
     let mut handles = vec![];
 
     let start_time = time::Instant::now();
     let execution_time = args.execution_time;
     let execution_time = Arc::new(execution_time);
-    
 
     for thread_cnt in 0..args.threads {
-        let scenarios_clone = scenarios_arc.clone();
+        let requests_clone = requests.clone();
         let execution_time_clone = execution_time.clone();
         let mut thread_iteration = 0;
         let handle = thread::spawn(move || {
@@ -32,14 +31,10 @@ pub fn execute(args: cmd::Args, scenarios: Vec<parser::Scenario>) {
                 thread_iteration += 1; //increment iteration
                 debug!("Executing thread {}-{}", thread_cnt, thread_iteration);
 
-                //looping thry scenarios
-                for scenario in scenarios_clone.deref() {
-                    debug!("Executing {}-{}-{}", thread_cnt, thread_iteration,scenario.name);
-                    
-                    for request in &scenario.requests {
-                        debug!("Executing {}-{}-{}", thread_cnt, thread_iteration,request.name);
-                    }
-
+                //looping thru requests
+                for request in requests_clone.deref() {
+                    debug!("Executing {}-{}-{:?}", thread_cnt, thread_iteration,request);
+                
                     //Delay between 2 requests
                     thread::sleep(time::Duration::from_millis(500));
                 }

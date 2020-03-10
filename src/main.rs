@@ -1,7 +1,6 @@
 mod parser;
 mod file;
 mod cmd;
-mod massager;
 mod executor;
 
 use log::{info, debug};
@@ -24,12 +23,9 @@ fn main() {
     //Replacing parameter values
     contents = file::find_and_replace(contents, env_map);
     
-    info!("Parsing scenarios");
-    let mut scenarios = parser::parse_scenarios(&contents);
-        
-    info!("Massaging requests");
-    massager::massage(&mut scenarios);
+    info!("Generating bombardier requests");
+    let mut requests = parser::parse_requests(&contents);
 
-    info!("Executing tests");
-    executor::execute(args, scenarios);
+    info!("Bombarding !!!");
+    executor::execute(args, requests);
 }
