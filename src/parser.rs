@@ -1,7 +1,10 @@
-use std::collections::HashMap;
+use crate::file;
 
+use std::collections::HashMap;
 use serde::{Deserialize};
 use base64::{encode_config, STANDARD};
+use rand::{thread_rng, Rng};
+use rand::distributions::Alphanumeric;
 
 pub trait HasRequestDetails {
     fn get_request_details(&self) -> &RequestDetails;
@@ -67,7 +70,6 @@ pub struct RequestDetails {
 }
 
 impl RequestDetails {
-
     fn headers_as_map(&self) -> HashMap<String, String> {
         let mut hm = HashMap::new();
         for header in &self.headers {
@@ -101,13 +103,30 @@ pub struct Body {
     pub raw: String,
 
     #[serde(default)]
-    pub urlencoded: Vec<KeyValue>
+    pub urlencoded: Vec<KeyValue>,
+
+    #[serde(default)]
+    pub formdata: Vec<FormData>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Env {
     #[serde(rename = "values")]
     pub key_values: Vec<KeyValue>
+}
+
+#[derive(Deserialize, Debug)]
+pub struct FormData {
+    pub key: String,
+
+    #[serde(default)]
+    pub value: String,
+
+    #[serde(rename = "type")]
+    pub param_type: String,
+
+    #[serde(default)]
+    pub src: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -122,7 +141,7 @@ pub struct BombardierRequest {
     pub method: String,
     pub url: String,
     pub headers: HashMap<String, String>,
-    pub body: Option<String>
+    pub body: String,
 }
 
 impl BombardierRequest {
@@ -184,19 +203,47 @@ fn inject_basic_auth(item_details: &RequestDetails, headers: &mut HashMap<String
     }
 }
 
-fn stringify_body(item_details: &RequestDetails) -> Option<String> {
+fn stringify_body(item_details: &RequestDetails) -> String {
     match item_details.body.mode.as_ref() {
-        "raw" => Some(item_details.body.raw.to_owned()),
-        "urlencoded" => {
-            let mut body = Vec::new();
-            for param in &item_details.body.urlencoded {
-                body.push(format!("{}={}", param.key, param.value));
-            }
-                
-            Some(body.join("&"))
-        }
-        _ => None
+        "raw" => item_details.body.raw.to_owned(),
+        "urlencoded" => stringify_url_encoded_body(&item_details.body.urlencoded),
+        "formdata" => stringify_form_data_body(&item_details),
+        _ => String::from("")
     }
+}
+
+fn stringify_url_encoded_body(urlencoded: &Vec<KeyValue>) -> String {
+    let mut body = Vec::new();
+    for param in urlencoded {
+        body.push(format!("{}={}", param.key, param.value));
+    }
+        
+    body.join("&")
+}
+
+fn stringify_form_data_body(request_details: &RequestDetails) -> String {
+    let rand_string: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(15)
+        .collect();
+
+    let boundary = format!("----WebKitFormBoundary{}", rand_string);
+    let mut body = Vec::new();
+    for param in &request_details.body.formdata {
+        match param.param_type.as_ref() {
+            "text" => {
+                body.push(format!("--{}\r\nContent-Disposition: form-data; name=\"{}\"\r\n\r\n{}\r\n",
+                    boundary, param.key, param.value));
+            },
+            "file" => {
+                body.push(format!("--{}\r\nContent-Disposition: form-data; name=\"\"; filename=\"{}\"\r\nContent-Type: {}\r\n\r\ntestdata\r\n",
+                    boundary, file::get_file_name(&param.src), param.value));
+            },
+            _ => ()
+        }                     
+    }
+
+    format!("{}--{}--",body.join(""), boundary)
 }
 
 pub fn get_env(json: &str) -> HashMap<String, String> {

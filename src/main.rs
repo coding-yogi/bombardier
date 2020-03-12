@@ -2,11 +2,12 @@ mod parser;
 mod file;
 mod cmd;
 mod executor;
+mod http;
 
-use log::{info, debug};
+use log::{info};
 
 fn main() {
-    env_logger::init();
+    pretty_env_logger::init_timed();
 
     let args = cmd::get_args()
         .expect("Args validation failed");
@@ -24,7 +25,7 @@ fn main() {
     contents = file::find_and_replace(contents, env_map);
     
     info!("Generating bombardier requests");
-    let mut requests = parser::parse_requests(&contents);
+    let requests = parser::parse_requests(&contents);
 
     info!("Bombarding !!!");
     executor::execute(args, requests);

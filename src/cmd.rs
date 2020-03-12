@@ -1,4 +1,4 @@
-use log::{info, debug, error};
+use log::{error};
 use clap::{Arg, App, ArgMatches};
 
 pub struct Args {
