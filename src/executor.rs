@@ -8,7 +8,7 @@ use std::ops::Deref;
 
 use log::{info, debug};
 
-pub fn execute(args: cmd::Args, requests: Vec<parser::BombardierRequest>) {
+pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) {
 
     let thread_delay = calc_thread_delay(&args.threads, &args.ramp_up);
     info!("Thread delay calculated as {}", thread_delay);
@@ -41,7 +41,7 @@ pub fn execute(args: cmd::Args, requests: Vec<parser::BombardierRequest>) {
 
                 //looping thru requests
                 for request in requests_clone.deref() {
-                    //info!("Executing {}-{}-{:?}", thread_cnt, thread_iteration, request);
+                    info!("Executing {}-{}-{:?}", thread_cnt, thread_iteration, request);
                     http::execute(&client_clone, &request).unwrap();
                 }
             }

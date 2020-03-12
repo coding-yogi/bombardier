@@ -1,9 +1,12 @@
 
 use crate::parser;
 
-use reqwest::{blocking::{Client, Body}, Method};
-use reqwest::header::{HeaderMap, HeaderName};
 use std::str::FromStr;
+use std::collections::HashMap;
+
+use reqwest::{blocking::{Client}, Method};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, };
+use log::{debug};
 
 pub fn get_sync_client()  -> Client {
     let client = Client::builder()
@@ -14,16 +17,64 @@ pub fn get_sync_client()  -> Client {
     client
 }
 
-pub fn execute(client: &Client, bmr: &parser::BombardierRequest) -> Result<(), Box<dyn std::error::Error + Send + Sync>>  {
-    let method = Method::from_bytes(bmr.method.as_bytes()).unwrap();
-    let uri = &bmr.url;
+pub fn execute(client: &Client, request: &parser::Request) -> Result<(), Box<dyn std::error::Error + Send + Sync>>  {
+    let details = &request.request_details;
+    let method = Method::from_bytes(details.method.as_bytes()).unwrap();
+    let uri = &details.url.raw;
     let mut headers = HeaderMap::new();
-    let body = Body::from(bmr.body.clone());
-    for k in bmr.headers.keys() {
-        headers.insert(HeaderName::from_str(k.as_ref()).unwrap(), bmr.headers.get(k).unwrap().parse().unwrap());
+    for header in &details.headers {
+        headers.insert(HeaderName::from_str(header.key.as_ref()).unwrap(), 
+        HeaderValue::from_str(header.value.as_str()).unwrap());
     }
-    let builder = client.request(method, uri).headers(headers).body(body);
-    let resp = builder.send().unwrap();
+
+    let mut builder = client.request(method, uri).headers(headers);
+
+    let auth = &details.auth;
+    if auth.auth_type == "basic" {
+        let username = auth.basic
+            .iter()
+            .find(|kv| kv.key == "username")
+            .unwrap()
+            .value.clone();
+        
+        let password = auth.basic
+            .iter()
+            .find(|kv| kv.key == "password")
+            .unwrap()
+            .value.clone();
+
+        builder = builder.basic_auth(username, Some(password));
+    }
+
+    match details.body.mode.as_ref() {
+        "formdata" => {
+            debug!("multipart form data found");
+            let mut form = reqwest::blocking::multipart::Form::new();
+            for data in &details.body.formdata {
+                match data.param_type.as_ref() {
+                    "text" => form = form.text(data.key.clone(), data.value.clone()),
+                    "file" => form = form.file("file", &data.src).unwrap(),         
+                    _ => panic!("form data should have either text or file param")
+                }
+            }
+
+            builder = builder.multipart(form)
+        },
+        "urlencoded" => {
+            debug!("url encoded data found");
+            let mut params = HashMap::new();
+            for param in &details.body.urlencoded {
+                params.insert(&param.key, &param.value);
+            }
+
+            builder = builder.form(&params)
+        },
+        "raw" => builder = builder.body(details.body.raw.clone()),
+        _ => panic!("Body mode not found")
+    }
+
+    let resp = builder.send()?;
+    debug!("response: {:?}", resp.text()?);
    
     Ok(())
 }

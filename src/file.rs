@@ -9,11 +9,6 @@ pub fn get_content(path: &str) -> String {
     content
 }
 
-pub fn get_file_name(path: &str) -> String {
-    let v: Vec<&str> =path.split(std::path::MAIN_SEPARATOR).collect();
-    String::from(*v.last().unwrap())
-}
-
 pub fn find_and_replace(mut content: String, map: HashMap<String, String>) -> String {
     info!("Replacing parameter values");
     for k in map.keys() {
