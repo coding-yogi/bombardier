@@ -1,19 +1,20 @@
 use crate::parser;
 use crate::cmd;
 use crate::http;
+use crate::report;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use std::ops::Deref;
 
 use log::{info, debug};
 
-pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) {
+pub fn execute(args: &cmd::Args, requests: Vec<parser::Request>) -> Vec<report::Stats> {
 
     let no_of_threads = args.threads;
     let no_of_iterations = args.iterations;
     let iteration_based_execution = no_of_iterations > 0;
-    let thread_delay = calc_thread_delay(&args.threads, &args.ramp_up);
+    let thread_delay = no_of_threads / args.ramp_up;
     info!("Thread delay calculated as {}", thread_delay);
 
     let start_time = time::Instant::now();
@@ -25,11 +26,14 @@ pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) {
     let requests = Arc::new(requests);
 
     let mut handles = vec![];
+    let all_stats = vec![];
+    let all_stats_arc = Arc::new(Mutex::new(all_stats));
 
     for thread_cnt in 0..no_of_threads {
         let requests_clone = requests.clone();
         let client_clone = client_arc.clone();
         let args_clone = args_arc.clone();
+        let all_stats_clone = all_stats_arc.clone();
 
         let mut thread_iteration = 0;
         let handle = thread::spawn(move || {
@@ -48,7 +52,10 @@ pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) {
                 //looping thru requests
                 for request in requests_clone.deref() {
                     info!("Executing {}-{}  : {:?}", thread_cnt, thread_iteration, request.name);
-                    http::execute(&client_clone, &request).unwrap();
+                    match http::execute(&client_clone, &request) {
+                        Ok(s) => all_stats_clone.lock().unwrap().push(s),
+                        _ => ()
+                    };
                 }
             }
         });
@@ -62,10 +69,11 @@ pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) {
     for handle in handles {
         handle.join().unwrap();
     }
-}
 
-fn calc_thread_delay(threads: &u64, rampup: &u64) -> u64 {
-    rampup / threads
+    match Arc::try_unwrap(all_stats_arc) {
+        Ok(r) =>  r.into_inner().unwrap(),
+        Err(_) => panic!("Unable to get report object")
+    }
 }
 
 fn is_execution_time_over(start_time: time::Instant, duration: &u64) -> bool {

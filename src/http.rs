@@ -1,12 +1,14 @@
 
 use crate::parser;
+use crate::report;
 
+use std::time;
 use std::str::FromStr;
 use std::collections::HashMap;
 
+use log::debug;
 use reqwest::{blocking::{Client}, Method};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, };
-use log::{debug};
 
 pub fn get_sync_client()  -> Client {
     let client = Client::builder()
@@ -17,7 +19,7 @@ pub fn get_sync_client()  -> Client {
     client
 }
 
-pub fn execute(client: &Client, request: &parser::Request) -> Result<(), Box<dyn std::error::Error + Send + Sync>>  {
+pub fn execute(client: &Client, request: &parser::Request) -> Result<report::Stats, Box<dyn std::error::Error + Send + Sync>>  {
     let details = &request.request_details;
     let method = Method::from_bytes(details.method.as_bytes()).unwrap();
     let uri = &details.url.raw;
@@ -73,8 +75,9 @@ pub fn execute(client: &Client, request: &parser::Request) -> Result<(), Box<dyn
         _ => panic!("Body mode not found")
     }
 
+    let start_time = time::Instant::now();
     let resp = builder.send()?;
-    debug!("response: {:?}", resp.text()?);
+    let end_time = start_time.elapsed().as_millis();
    
-    Ok(())
+    Ok(report::Stats::new(request.name.clone(), resp.status().as_u16(), end_time))
 }

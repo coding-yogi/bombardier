@@ -3,7 +3,9 @@ mod file;
 mod cmd;
 mod executor;
 mod http;
+mod report;
 
+use std::time;
 use log::{info};
 
 fn main() {
@@ -26,7 +28,13 @@ fn main() {
     
     info!("Generating bombardier requests");
     let requests = parser::parse_requests(&contents);
+    let names = parser::get_request_names(&requests);
 
     info!("Bombarding !!!");
-    executor::execute(args, requests);
+    let st = time::Instant::now();
+    let stats = executor::execute(&args, requests);
+    let et = st.elapsed().as_secs();
+
+    info!("Generating report");
+    report::generate_report(names, stats, et); 
 }
