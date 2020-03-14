@@ -6,7 +6,11 @@ pub struct Args {
     pub collection_file: String,
     pub threads: u64,
     pub ramp_up: u64,
-    pub execution_time: u64
+    pub execution_time: u64,
+    pub iterations: u64,
+    pub proxy: String,
+    pub report: String,
+    pub handle_cookies: bool
 }
 
 pub fn get_args() -> Result<Args, ()> {
@@ -14,7 +18,11 @@ pub fn get_args() -> Result<Args, ()> {
     let arg_collection = "collection";
     let arg_threads = "threads";
     let arg_ramp_up = "rampup";
-    let arg_execution_time = "execution_time";
+    let arg_execution_time = "execution time";
+    let arg_iterations = "iterations";
+    let arg_proxy = "proxy";
+    let arg_report = "report";
+    let arg_cookies = "handle cookies";
 
     let is_json_file = |s: String| {
         match s.ends_with(".json") {
@@ -55,7 +63,7 @@ pub fn get_args() -> Result<Args, ()> {
                  .validator(is_number)
                  .help("Load in number of threads"))
         .arg(Arg::with_name(arg_ramp_up)
-                 .short("r")
+                 .short("u")
                  .takes_value(true)
                  .validator(is_number)
                  .required(true)
@@ -63,9 +71,27 @@ pub fn get_args() -> Result<Args, ()> {
         .arg(Arg::with_name(arg_execution_time)
                  .short("e")
                  .takes_value(true)
-                 .required(true)
+                 .conflicts_with(arg_iterations)
                  .validator(is_number)
                  .help("Execution time in secs"))
+        .arg(Arg::with_name(arg_iterations)
+                 .short("i")
+                 .takes_value(true)
+                 .required_unless(arg_execution_time)
+                 .validator(is_number)
+                 .help("Iterations"))
+        .arg(Arg::with_name(arg_proxy)
+                 .short("p")
+                 .takes_value(true)
+                 .help("http proxy"))
+        .arg(Arg::with_name(arg_report)
+                 .short("r")
+                 .takes_value(true)
+                 .default_value("report.csv")
+                 .help("report file path"))
+        .arg(Arg::with_name(arg_cookies)
+                 .short("h")
+                 .help("handle cookies"))
         .get_matches();
 
 
@@ -74,11 +100,15 @@ pub fn get_args() -> Result<Args, ()> {
         config_file: get_value_as_str(&matches, arg_config),
         threads: get_value_as_u64(&matches, arg_threads),
         ramp_up: get_value_as_u64(&matches, arg_ramp_up),
-        execution_time: get_value_as_u64(&matches, arg_execution_time)
+        execution_time: get_value_as_u64(&matches, arg_execution_time),
+        iterations: get_value_as_u64(&matches, arg_iterations),
+        proxy: get_value_as_str(&matches, arg_proxy),
+        report: get_value_as_str(&matches, arg_report),
+        handle_cookies: matches.is_present(arg_cookies)
     };
 
     //More validations on args
-    if args.execution_time < args.ramp_up {
+    if args.execution_time > 0 && args.execution_time < args.ramp_up {
         error!("Ramp up time should be less than Execution time");
         return Err(());
     }
@@ -87,11 +117,20 @@ pub fn get_args() -> Result<Args, ()> {
 }
 
 fn get_value_as_str(matches: &ArgMatches, arg: &str) -> String {
-    matches.value_of(arg).unwrap().to_string()
+    match matches.value_of(arg) {
+        Some(x) => x.to_string(),
+        None => "".to_string()
+    }
 }
 
 fn get_value_as_u64(matches: &ArgMatches, arg: &str) -> u64 {
-    let arg: String = String::from(matches.value_of(arg).unwrap());
-    let uarg: u64 = arg.parse::<u64>().unwrap();
-    uarg
+    match matches.value_of(arg) {
+        Some(x) => {
+            let arg: String = String::from(x);
+            let uarg: u64 = arg.parse::<u64>().unwrap();
+            uarg
+        },
+
+        None => 0
+    } 
 }
