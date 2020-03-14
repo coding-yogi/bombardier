@@ -10,29 +10,35 @@ use log::{info, debug};
 
 pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) {
 
+    let no_of_threads = args.threads;
+    let no_of_iterations = args.iterations;
+    let iteration_based_execution = no_of_iterations > 0;
     let thread_delay = calc_thread_delay(&args.threads, &args.ramp_up);
     info!("Thread delay calculated as {}", thread_delay);
-    
-    let requests = Arc::new(requests);
-    let mut handles = vec![];
 
     let start_time = time::Instant::now();
     let execution_time = args.execution_time;
-    let execution_time = Arc::new(execution_time);
-
+   
     let client = http::get_sync_client();
     let client_arc = Arc::new(client);
+    let args_arc = Arc::new(args);
+    let requests = Arc::new(requests);
 
-    for thread_cnt in 0..args.threads {
+    let mut handles = vec![];
+
+    for thread_cnt in 0..no_of_threads {
         let requests_clone = requests.clone();
-        let execution_time_clone = execution_time.clone();
         let client_clone = client_arc.clone();
+        let args_clone = args_arc.clone();
 
         let mut thread_iteration = 0;
         let handle = thread::spawn(move || {
             loop {
-                //Continue next iteration if execution time hasn't passed
-                if is_execution_time_over(start_time, execution_time_clone.deref()) {
+                if iteration_based_execution {
+                    if thread_iteration >= no_of_iterations {
+                        break;
+                    }
+                } else if is_execution_time_over(start_time, &execution_time) {
                     break;
                 }
 
@@ -41,7 +47,7 @@ pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) {
 
                 //looping thru requests
                 for request in requests_clone.deref() {
-                    info!("Executing {}-{}-{:?}", thread_cnt, thread_iteration, request);
+                    info!("Executing {}-{}  : {:?}", thread_cnt, thread_iteration, request.name);
                     http::execute(&client_clone, &request).unwrap();
                 }
             }
