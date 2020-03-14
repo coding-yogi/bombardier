@@ -20,7 +20,7 @@ impl Stats {
 
 pub fn generate_report(names: Vec<String>, stats: Vec<Stats>, et: u64) {
     let mut table = Table::new();
-    table.add_row(row!["Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "Errors", "Error Rate"]);
+    table.add_row(row![FY => "Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "Errors", "Error Rate"]);
      
     let mut total_hits = 0;
     let mut total_errors = 0.0;
@@ -53,7 +53,7 @@ pub fn generate_report(names: Vec<String>, stats: Vec<Stats>, et: u64) {
 
 fn print_summary_table(et: u64, total_hits: usize, total_errors: f32) {
     let mut sum_table = Table::new();
-    sum_table.add_row(row!["Total Execution Time (in secs)", "Total Hits", "Hits/s", "Total Errors", "Error Rate"]);
+    sum_table.add_row(row![FG => "Total Execution Time (in secs)", "Total Hits", "Hits/s", "Total Errors", "Error Rate"]);
 
     let et = et as f32;
     let total_hits = total_hits as f32;
