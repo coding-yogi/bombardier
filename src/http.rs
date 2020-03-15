@@ -1,4 +1,4 @@
-
+use crate::cmd;
 use crate::parser;
 use crate::report;
 
@@ -10,10 +10,14 @@ use log::debug;
 use reqwest::{blocking::{Client}, Method};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, };
 
-pub fn get_sync_client()  -> Client {
-    let client = Client::builder()
-        .user_agent("bombardier")
-        .build()
+pub fn get_sync_client(args: &cmd::Args)  -> Client {
+    let mut client_builder = Client::builder().user_agent("bombardier");
+
+    if args.handle_cookies {
+        client_builder = client_builder.cookie_store(true);
+    }
+
+    let client = client_builder.build()
         .expect("Unable to create client");
 
     client

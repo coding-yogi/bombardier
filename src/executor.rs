@@ -20,7 +20,7 @@ pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) -> Vec<report::S
     let start_time = time::Instant::now();
     let execution_time = args.execution_time;
    
-    let client = http::get_sync_client();
+    let client = http::get_sync_client(&args);
     let client_arc = Arc::new(client);
     let args_arc = Arc::new(args);
     let requests = Arc::new(requests);
