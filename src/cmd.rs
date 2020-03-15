@@ -89,7 +89,7 @@ pub fn get_args() -> Result<Args, ()> {
         .arg(Arg::with_name(arg_delay)
                  .short("d")
                  .takes_value(true)
-                 .default_value("0")
+                 .default_value("1")
                  .validator(is_number)
                  .display_order(5)
                  .help("Delay between requests in ms"))
