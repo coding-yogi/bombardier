@@ -32,7 +32,7 @@ fn main() {
 
     info!("Bombarding !!!");
     let st = time::Instant::now();
-    let stats = executor::execute(&args, requests);
+    let stats = executor::execute(args, requests);
     let et = st.elapsed().as_secs();
 
     info!("Generating report");

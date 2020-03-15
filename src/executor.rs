@@ -9,7 +9,7 @@ use std::ops::Deref;
 
 use log::{info, debug};
 
-pub fn execute(args: &cmd::Args, requests: Vec<parser::Request>) -> Vec<report::Stats> {
+pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) -> Vec<report::Stats> {
 
     let no_of_threads = args.threads;
     let no_of_iterations = args.iterations;
@@ -56,6 +56,9 @@ pub fn execute(args: &cmd::Args, requests: Vec<parser::Request>) -> Vec<report::
                         Ok(s) => all_stats_clone.lock().unwrap().push(s),
                         _ => ()
                     };
+
+                    //wait per request delay
+                    thread::sleep(time::Duration::from_millis(args_clone.delay));
                 }
             }
         });
