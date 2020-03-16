@@ -6,16 +6,16 @@ use crate::report;
 use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use std::ops::Deref;
+use std::collections::HashMap;
 
-use log::{info, debug};
+use log::{debug};
 
-pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) -> Vec<report::Stats> {
+pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) -> Vec<report::Stats> {
 
     let no_of_threads = args.threads;
     let no_of_iterations = args.iterations;
     let iteration_based_execution = no_of_iterations > 0;
-    let thread_delay = no_of_threads / args.ramp_up;
-    info!("Thread delay calculated as {}", thread_delay);
+    let thread_delay = args.ramp_up * 1000 / no_of_threads;
 
     let start_time = time::Instant::now();
     let execution_time = args.execution_time;
@@ -34,6 +34,7 @@ pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) -> Vec<report::S
         let client_clone = client_arc.clone();
         let args_clone = args_arc.clone();
         let all_stats_clone = all_stats_arc.clone();
+        let mut env_map_clone = env_map.clone();
 
         let mut thread_iteration = 0;
         let handle = thread::spawn(move || {
@@ -47,26 +48,22 @@ pub fn execute(args: cmd::Args, requests: Vec<parser::Request>) -> Vec<report::S
                 }
 
                 thread_iteration += 1; //increment iteration
-                debug!("Executing thread {}-{}", thread_cnt, thread_iteration);
 
                 //looping thru requests
                 for request in requests_clone.deref() {
-                    info!("Executing {}-{}  : {:?}", thread_cnt, thread_iteration, request.name);
-                    match http::execute(&client_clone, &request) {
+                    debug!("Executing {}-{}  : {:?}", thread_cnt, thread_iteration, request.name);
+                    match http::execute(&client_clone, &request, &mut env_map_clone) {
                         Ok(s) => all_stats_clone.lock().unwrap().push(s),
                         _ => ()
                     };
 
-                    //wait per request delay
-                    thread::sleep(time::Duration::from_millis(args_clone.delay));
+                    thread::sleep(time::Duration::from_millis(args_clone.delay)); //wait per request delay
                 }
             }
         });
 
         handles.push(handle);
-
-        //wait per thread delay
-        thread::sleep(time::Duration::from_secs(thread_delay));
+        thread::sleep(time::Duration::from_millis(thread_delay)); //wait per thread delay
     }
 
     for handle in handles {

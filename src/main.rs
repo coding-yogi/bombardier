@@ -24,7 +24,7 @@ fn main() {
     let env_map = parser::get_env(&config_content);
 
     //Replacing parameter values
-    contents = file::find_and_replace(contents, env_map);
+    contents = file::find_and_replace(contents, &env_map);
     
     info!("Generating bombardier requests");
     let requests = parser::parse_requests(&contents);
@@ -32,9 +32,10 @@ fn main() {
 
     info!("Bombarding !!!");
     let st = time::Instant::now();
-    let stats = executor::execute(args, requests);
+    let stats = executor::execute(args, env_map, requests);
     let et = st.elapsed().as_secs();
 
     info!("Generating report");
     report::generate_report(names, stats, et); 
+    info!("Done");
 }

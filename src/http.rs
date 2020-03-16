@@ -23,7 +23,7 @@ pub fn get_sync_client(args: &cmd::Args)  -> Client {
     client
 }
 
-pub fn execute(client: &Client, request: &parser::Request) -> Result<report::Stats, Box<dyn std::error::Error + Send + Sync>>  {
+pub fn execute(client: &Client, request: &parser::Request, env_map: &mut HashMap<String, String>) -> Result<report::Stats, Box<dyn std::error::Error + Send + Sync>>  {
     let details = &request.request_details;
     let method = Method::from_bytes(details.method.as_bytes()).unwrap();
     let uri = &details.url.raw;

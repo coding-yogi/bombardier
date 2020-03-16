@@ -9,7 +9,7 @@ pub fn get_content(path: &str) -> String {
     content
 }
 
-pub fn find_and_replace(mut content: String, map: HashMap<String, String>) -> String {
+pub fn find_and_replace(mut content: String, map: &HashMap<String, String>) -> String {
     info!("Replacing parameter values");
     for k in map.keys() {
         let replaced_string = &format!("{{{{{}}}}}", k);

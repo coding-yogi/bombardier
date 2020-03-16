@@ -43,8 +43,9 @@ pub fn generate_report(names: Vec<String>, stats: Vec<Stats>, et: u64) {
         let sum = sum as usize;
         let avg: usize = sum/num;
         let num_f32 = num as f32;
-        let sum_f32 = sum as f32;
-        let tput: f32 = (num_f32 * 1000.0) / sum_f32;
+        //let sum_f32 = sum as f32;
+        let et_f32 = et as f32;
+        let tput: f32 = num_f32 / et_f32;
         let errors = filter.par_iter().filter(|s| s.status >= 400).count() as f32;
         let error_rate: f32 = errors * 100.0 / num_f32;
 
