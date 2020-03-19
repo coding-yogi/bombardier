@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use serde::{Deserialize};
+use serde::{Serialize, Deserialize};
 
 #[derive(Deserialize, Debug)]
 pub struct Root {
@@ -18,7 +18,7 @@ pub struct Scenario {
     pub requests: Vec<Request>
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Request {
     pub name: String,
 
@@ -26,7 +26,7 @@ pub struct Request {
     pub request_details: RequestDetails
 }
 
-#[derive(Clone, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct RequestDetails {
     pub method: String,
     pub url: Url,
@@ -39,12 +39,12 @@ pub struct RequestDetails {
     pub headers: Vec<KeyValue>,
 }
 
-#[derive(Clone, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct Url {
     pub raw: String
 }
 
-#[derive(Clone, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct Auth {
     #[serde(rename = "type")]
     pub auth_type: String,
@@ -53,7 +53,7 @@ pub struct Auth {
     pub basic: Vec<KeyValue>,
 }
 
-#[derive(Clone, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct Body {
     #[serde(default)]
     pub mode: String,
@@ -74,7 +74,7 @@ pub struct Env {
     pub key_values: Vec<KeyValue>
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct FormData {
     pub key: String,
 
@@ -88,7 +88,7 @@ pub struct FormData {
     pub src: String,
 }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct KeyValue {
     pub key: String,
     pub value: String

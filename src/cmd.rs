@@ -1,5 +1,5 @@
-use log::{error};
 use clap::{Arg, App, ArgMatches};
+use log::{error};
 
 pub struct Args {
     pub config_file: String,

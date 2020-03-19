@@ -1,14 +1,14 @@
 use crate::cmd;
 use crate::parser;
-use crate::report;
+
 
 use std::time;
 use std::str::FromStr;
 use std::collections::HashMap;
 
 use log::debug;
-use reqwest::{blocking::{Client}, Method};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, };
+use reqwest::{blocking::{Client, Response}, Method};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 pub fn get_sync_client(args: &cmd::Args)  -> Client {
     let mut client_builder = Client::builder().user_agent("bombardier");
@@ -23,7 +23,7 @@ pub fn get_sync_client(args: &cmd::Args)  -> Client {
     client
 }
 
-pub fn execute(client: &Client, request: &parser::Request, env_map: &mut HashMap<String, String>) -> Result<report::Stats, Box<dyn std::error::Error + Send + Sync>>  {
+pub fn execute(client: &Client, request: parser::Request) -> Result<(Response, u128), Box<dyn std::error::Error + Send + Sync>>  {
     let details = &request.request_details;
     let method = Method::from_bytes(details.method.as_bytes()).unwrap();
     let uri = &details.url.raw;
@@ -73,5 +73,5 @@ pub fn execute(client: &Client, request: &parser::Request, env_map: &mut HashMap
     let resp = builder.send()?;
     let end_time = start_time.elapsed().as_millis();
    
-    Ok(report::Stats::new(request.name.clone(), resp.status().as_u16(), end_time))
+    Ok((resp, end_time))
 }

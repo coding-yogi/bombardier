@@ -1,6 +1,7 @@
-use crate::parser;
 use crate::cmd;
+use crate::file;
 use crate::http;
+use crate::parser;
 use crate::report;
 
 use std::sync::{Arc, Mutex};
@@ -8,7 +9,8 @@ use std::{thread, time};
 use std::ops::Deref;
 use std::collections::HashMap;
 
-use log::{debug};
+use log::{debug, info};
+use reqwest::{blocking::Response};
 
 pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) -> Vec<report::Stats> {
 
@@ -26,14 +28,14 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     let requests = Arc::new(requests);
 
     let mut handles = vec![];
-    let all_stats = vec![];
-    let all_stats_arc = Arc::new(Mutex::new(all_stats));
+    let stats = vec![];
+    let stats_arc = Arc::new(Mutex::new(stats));
 
     for thread_cnt in 0..no_of_threads {
         let requests_clone = requests.clone();
         let client_clone = client_arc.clone();
         let args_clone = args_arc.clone();
-        let all_stats_clone = all_stats_arc.clone();
+        let stats_clone = stats_arc.clone();
         let mut env_map_clone = env_map.clone();
 
         let mut thread_iteration = 0;
@@ -51,9 +53,14 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
                 //looping thru requests
                 for request in requests_clone.deref() {
-                    debug!("Executing {}-{}  : {:?}", thread_cnt, thread_iteration, request.name);
-                    match http::execute(&client_clone, &request, &mut env_map_clone) {
-                        Ok(s) => all_stats_clone.lock().unwrap().push(s),
+                    debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, request.name);
+
+                    let transformed_request = transform(&request, &env_map_clone); //transform request
+                    match http::execute(&client_clone, transformed_request) {
+                        Ok((res, et)) => {
+                            stats_clone.lock().unwrap().push(report::Stats::new(request.name.clone(), res.status().as_u16(), et)); //push stats
+                            update_env_map(res, &mut env_map_clone) //process response and update env_map
+                        },
                         _ => ()
                     };
 
@@ -70,7 +77,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
         handle.join().unwrap();
     }
 
-    match Arc::try_unwrap(all_stats_arc) {
+    match Arc::try_unwrap(stats_arc) {
         Ok(r) =>  r.into_inner().unwrap(),
         Err(_) => panic!("Unable to get report object")
     }
@@ -78,4 +85,17 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
 fn is_execution_time_over(start_time: time::Instant, duration: &u64) -> bool {
     start_time.elapsed().as_secs() > *duration
+}
+
+fn update_env_map(response: Response, env_map: &mut HashMap<String, String>) {
+    let resp_body = response.text();
+}
+
+fn transform(request: &parser::Request, env_map: &HashMap<String, String>) -> parser::Request {
+    let mut s_request = serde_json::to_string(request).expect("Request cannot be serialized");
+    info!("org req: {}",s_request);
+    s_request = file::find_and_replace(s_request, &env_map);
+    info!("transformed req: {}",s_request);
+    let transformed_request: parser::Request = serde_json::from_str(&s_request).expect("Unable to parse Json");
+    transformed_request
 }
