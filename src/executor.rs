@@ -93,9 +93,7 @@ fn update_env_map(response: Response, env_map: &mut HashMap<String, String>) {
 
 fn transform(request: &parser::Request, env_map: &HashMap<String, String>) -> parser::Request {
     let mut s_request = serde_json::to_string(request).expect("Request cannot be serialized");
-    info!("org req: {}",s_request);
     s_request = file::find_and_replace(s_request, &env_map);
-    info!("transformed req: {}",s_request);
     let transformed_request: parser::Request = serde_json::from_str(&s_request).expect("Unable to parse Json");
     transformed_request
 }
