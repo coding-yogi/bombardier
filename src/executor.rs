@@ -9,7 +9,7 @@ use std::{thread, time};
 use std::ops::Deref;
 use std::collections::HashMap;
 
-use log::{debug, info};
+use log::{debug};
 use reqwest::{blocking::Response};
 
 pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) -> Vec<report::Stats> {
@@ -21,6 +21,8 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
     let start_time = time::Instant::now();
     let execution_time = args.execution_time;
+
+    let report_file = file::create_file(&args.report);
    
     let client = http::get_sync_client(&args);
     let client_arc = Arc::new(client);
@@ -30,6 +32,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     let mut handles = vec![];
     let stats = vec![];
     let stats_arc = Arc::new(Mutex::new(stats));
+    let report_arc = Arc::new(Mutex::new(report_file));
 
     for thread_cnt in 0..no_of_threads {
         let requests_clone = requests.clone();
@@ -37,6 +40,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
         let args_clone = args_arc.clone();
         let stats_clone = stats_arc.clone();
         let mut env_map_clone = env_map.clone();
+        let report_clone = report_arc.clone();
 
         let mut thread_iteration = 0;
         let handle = thread::spawn(move || {
@@ -55,15 +59,15 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                 for request in requests_clone.deref() {
                     debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, request.name);
 
-                    let transformed_request = transform(&request, &env_map_clone); //transform request
-                    match http::execute(&client_clone, transformed_request) {
-                        Ok((res, et)) => {
-                            stats_clone.lock().unwrap().push(report::Stats::new(request.name.clone(), res.status().as_u16(), et)); //push stats
-                            update_env_map(res, &mut env_map_clone) //process response and update env_map
-                        },
-                        _ => ()
-                    };
+                    let processed_request = preprocess(&request, &env_map_clone); //transform request
+                    let (res, et) = http::execute(&client_clone, processed_request).unwrap();
 
+                    debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
+                    let new_stats = report::Stats::new(request.name.clone(), res.status().as_u16(), et);
+                    file::write_to_file(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", new_stats));
+                    stats_clone.lock().unwrap().push(new_stats); //push stats
+                    update_env_map(res, &mut env_map_clone); //process response and update env_map
+                    
                     thread::sleep(time::Duration::from_millis(args_clone.delay)); //wait per request delay
                 }
             }
@@ -91,9 +95,8 @@ fn update_env_map(response: Response, env_map: &mut HashMap<String, String>) {
     let resp_body = response.text();
 }
 
-fn transform(request: &parser::Request, env_map: &HashMap<String, String>) -> parser::Request {
+fn preprocess(request: &parser::Request, env_map: &HashMap<String, String>) -> parser::Request {
     let mut s_request = serde_json::to_string(request).expect("Request cannot be serialized");
     s_request = file::find_and_replace(s_request, &env_map);
-    let transformed_request: parser::Request = serde_json::from_str(&s_request).expect("Unable to parse Json");
-    transformed_request
+    serde_json::from_str(&s_request).expect("Unable to parse Json")
 }

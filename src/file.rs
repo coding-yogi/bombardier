@@ -1,11 +1,29 @@
 use std::fs;
+use std::io::Write;
 use std::collections::HashMap;
+
+use log::{error};
 
 pub fn get_content(path: &str) -> String {
     let content: String = fs::read_to_string(path)
         .expect("Something went wrong reading the file");
 
     content
+}
+
+pub fn create_file(path: &str) -> fs::File {
+    let report_file = fs::File::create(path); 
+    match report_file {
+        Ok(f) => f,
+        Err(s) => {
+            error!("Unable to create report file");
+            panic!(s)
+        } 
+    }
+}
+
+pub fn write_to_file(file: &mut fs::File, stat: &str) {
+    file.write(stat.as_bytes());
 }
 
 pub fn find_and_replace(mut content: String, map: &HashMap<String, String>) -> String {

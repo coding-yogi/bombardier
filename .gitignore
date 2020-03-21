@@ -3,3 +3,4 @@
 .vscode
 examples
 .DS_store
+*.csv

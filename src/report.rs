@@ -1,5 +1,8 @@
+use std::fmt;
+
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
+use chrono::Utc;
 
 #[derive(Clone, Debug)]
 pub struct Stats {
@@ -18,6 +21,12 @@ impl Stats {
     }
 }
 
+impl fmt::Display for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}, {}, {}, {:width$}\n", Utc::now().to_rfc3339(), self.status, self.time, self.name, width = 35)
+    }
+}
+
 pub fn generate_report(names: Vec<String>, stats: Vec<Stats>, et: u64) {
     let mut table = Table::new();
     table.add_row(row![FY => "Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "90%", "95%", "99%", "Errors", "Error Rate"]);
@@ -29,6 +38,7 @@ pub fn generate_report(names: Vec<String>, stats: Vec<Stats>, et: u64) {
         //HEAVY CLONING HAPPENING HERE - TRY TO FIX
         let filter: Vec<Stats> = stats.clone().into_iter().filter(|s| s.name == name).collect();
         let num = filter.len();
+        
         let mut times: Vec<u128> = filter.par_iter().map(|s| s.time).collect();
         times.sort();
 
