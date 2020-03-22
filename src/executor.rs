@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use log::{debug};
 use reqwest::{blocking::Response};
 
-pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) -> Vec<report::Stats> {
+pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
 
     let no_of_threads = args.threads;
     let no_of_iterations = args.iterations;
@@ -22,7 +22,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     let start_time = time::Instant::now();
     let execution_time = args.execution_time;
 
-    let report_file = file::create_file(&args.report);
+    let report_file = report::create_file(&args.report);
    
     let client = http::get_sync_client(&args);
     let client_arc = Arc::new(client);
@@ -30,15 +30,12 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     let requests = Arc::new(requests);
 
     let mut handles = vec![];
-    let stats = vec![];
-    let stats_arc = Arc::new(Mutex::new(stats));
     let report_arc = Arc::new(Mutex::new(report_file));
 
     for thread_cnt in 0..no_of_threads {
         let requests_clone = requests.clone();
         let client_clone = client_arc.clone();
         let args_clone = args_arc.clone();
-        let stats_clone = stats_arc.clone();
         let mut env_map_clone = env_map.clone();
         let report_clone = report_arc.clone();
 
@@ -60,12 +57,11 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                     debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, request.name);
 
                     let processed_request = preprocess(&request, &env_map_clone); //transform request
-                    let (res, et) = http::execute(&client_clone, processed_request).unwrap();
+                    let (res, lat) = http::execute(&client_clone, processed_request).unwrap();
 
                     debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
-                    let new_stats = report::Stats::new(request.name.clone(), res.status().as_u16(), et);
-                    file::write_to_file(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", new_stats));
-                    stats_clone.lock().unwrap().push(new_stats); //push stats
+                    let new_stats = report::Stats::new(request.name.clone(), res.status().as_u16(), lat);
+                    report::write_stats_to_csv(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", new_stats));
                     update_env_map(res, &mut env_map_clone); //process response and update env_map
                     
                     thread::sleep(time::Duration::from_millis(args_clone.delay)); //wait per request delay
@@ -79,11 +75,6 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
     for handle in handles {
         handle.join().unwrap();
-    }
-
-    match Arc::try_unwrap(stats_arc) {
-        Ok(r) =>  r.into_inner().unwrap(),
-        Err(_) => panic!("Unable to get report object")
     }
 }
 

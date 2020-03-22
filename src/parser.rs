@@ -94,12 +94,6 @@ pub struct KeyValue {
     pub value: String
 }
 
-pub fn get_request_names(requests: &Vec<Request>) -> Vec<String> {
-    requests.iter()
-    .map(|r| r.name.clone())
-    .collect()
-}
-
 pub fn parse_requests(json: &str) -> Vec<Request> {
     let root: Root = serde_json::from_str(&json).expect("Unable to parse Json");
 

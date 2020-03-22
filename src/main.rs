@@ -5,8 +5,7 @@ mod executor;
 mod http;
 mod report;
 
-use std::time;
-use log::{info};
+use log::{info, error};
 
 fn main() {
     pretty_env_logger::init_timed();
@@ -14,28 +13,32 @@ fn main() {
     let args = cmd::get_args()
         .expect("Args validation failed");
 
-     // Get scenarios
-    info!("Reading collections file");
-    let mut contents = file::get_content(&args.collection_file);
-    
-    //Get config
-    info!("Reading environments file");
-    let config_content = file::get_content(&args.config_file);
-    let env_map = parser::get_env(&config_content);
+    match args.command.as_str() {
+        "bombard" => {
+            // Get scenarios
+            info!("Reading collections file");
+            let mut contents = file::get_content(&args.collection_file);
+            
+            //Get config
+            info!("Reading environments file");
+            let config_content = file::get_content(&args.config_file);
+            let env_map = parser::get_env(&config_content);
 
-    //Replacing parameter values
-    contents = file::find_and_replace(contents, &env_map);
-    
-    info!("Generating bombardier requests");
-    let requests = parser::parse_requests(&contents);
-    let names = parser::get_request_names(&requests);
+            info!("Generating bombardier requests");
+            contents = file::find_and_replace(contents, &env_map);
+            let requests = parser::parse_requests(&contents);
+           
+            info!("Bombarding !!!");
+            executor::execute(args, env_map, requests);
 
-    info!("Bombarding !!!");
-    let st = time::Instant::now();
-    let stats = executor::execute(args, env_map, requests);
-    let et = st.elapsed().as_secs();
-
-    info!("Generating report");
-    report::generate_report(names, stats, et); 
-    info!("Done");
+            info!("Execution Complete. Run report command to get details");
+        },
+        "report" => {
+            info!("Generating report");
+            report::display(args.report); 
+        },
+        _ => {
+            error!("Invalid command");
+        }
+    }
 }

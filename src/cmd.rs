@@ -1,7 +1,8 @@
-use clap::{Arg, App, ArgMatches};
+use clap::{Arg, App, ArgMatches, SubCommand};
 use log::{error};
 
 pub struct Args {
+    pub command: String,
     pub config_file: String,
     pub collection_file: String,
     pub delay: u64,
@@ -44,78 +45,91 @@ pub fn get_args() -> Result<Args, ()> {
     let matches = App::new("Bombardier")
         .version("0.1.0")
         .author("Coding Yogi <aniket.g2185@gmail.com>")
-        .arg(Arg::with_name(arg_config)
-                 .short("c")
-                 .takes_value(true)
-                 .required(true)
-                 .validator(is_json_file)
-                 .display_order(0)
-                 .help("Environments JSON file"))
-        .arg(Arg::with_name(arg_collection)
-                 .short("f")
-                 .takes_value(true)
-                 .required(true)
-                 .validator(is_json_file)
-                 .display_order(1)
-                 .help("Collections JSON file"))
-        .arg(Arg::with_name(arg_threads)
-                 .short("t")
-                 .takes_value(true)
-                 .required(true)
-                 .display_order(2)
-                 .validator(is_number)
-                 .help("Load in number of threads"))
-        .arg(Arg::with_name(arg_ramp_up)
-                 .short("u")
-                 .takes_value(true)
-                 .validator(is_number)
-                 .display_order(3)
-                 .required(true)
-                 .help("Ramp up time for given users in secs"))
-        .arg(Arg::with_name(arg_execution_time)
-                 .short("e")
-                 .takes_value(true)
-                 .conflicts_with(arg_iterations)
-                 .validator(is_number)
-                 .display_order(4)
-                 .help("Execution time in secs"))
-        .arg(Arg::with_name(arg_iterations)
-                 .short("i")
-                 .takes_value(true)
-                 .required_unless(arg_execution_time)
-                 .validator(is_number)
-                 .display_order(4)
-                 .help("Iterations"))
-        .arg(Arg::with_name(arg_delay)
-                 .short("d")
-                 .takes_value(true)
-                 .default_value("1")
-                 .validator(is_number)
-                 .display_order(5)
-                 .help("Delay between requests in ms"))
-        .arg(Arg::with_name(arg_report)
-                 .short("r")
-                 .takes_value(true)
-                 .default_value("report.csv")
-                 .display_order(6)
-                 .help("report file path"))
-        .arg(Arg::with_name(arg_cookies)
-                 .short("h")
-                 .help("handle cookies"))
-                 .display_order(7)
+        .subcommand(SubCommand::with_name("bombard").about("Executes the test")
+                .arg(Arg::with_name(arg_config)
+                        .short("c")
+                        .takes_value(true)
+                        .required(true)
+                        .validator(is_json_file)
+                        .display_order(0)
+                        .help("Environments JSON file"))
+                .arg(Arg::with_name(arg_collection)
+                        .short("f")
+                        .takes_value(true)
+                        .required(true)
+                        .validator(is_json_file)
+                        .display_order(1)
+                        .help("Collections JSON file"))
+                .arg(Arg::with_name(arg_threads)
+                        .short("t")
+                        .takes_value(true)
+                        .required(true)
+                        .display_order(2)
+                        .validator(is_number)
+                        .help("Load in number of threads"))
+                .arg(Arg::with_name(arg_ramp_up)
+                        .short("u")
+                        .takes_value(true)
+                        .validator(is_number)
+                        .display_order(3)
+                        .required(true)
+                        .help("Ramp up time for given users in secs"))
+                .arg(Arg::with_name(arg_execution_time)
+                        .short("e")
+                        .takes_value(true)
+                        .conflicts_with(arg_iterations)
+                        .validator(is_number)
+                        .display_order(4)
+                        .help("Execution time in secs"))
+                .arg(Arg::with_name(arg_iterations)
+                        .short("i")
+                        .takes_value(true)
+                        .required_unless(arg_execution_time)
+                        .validator(is_number)
+                        .display_order(4)
+                        .help("Iterations"))
+                .arg(Arg::with_name(arg_delay)
+                        .short("d")
+                        .takes_value(true)
+                        .default_value("1")
+                        .validator(is_number)
+                        .display_order(5)
+                        .help("Delay between requests in ms"))
+                .arg(Arg::with_name(arg_report)
+                        .short("r")
+                        .takes_value(true)
+                        .default_value("report.csv")
+                        .display_order(6)
+                        .help("report file path"))
+                .arg(Arg::with_name(arg_cookies)
+                        .short("h")
+                        .display_order(7)
+                        .help("handle cookies")))
+        .subcommand(SubCommand::with_name("report")
+                .about("Generates the report from report file")
+                .arg(Arg::with_name(arg_report)
+                        .short("r")
+                        .takes_value(true)
+                        .default_value("report.csv")
+                        .display_order(6)
+                        .help("report file path")))
         .get_matches();
+
+    
+    let (subcommand, subcommand_args) = matches.subcommand();
 
 
     let args = Args {
-        collection_file: get_value_as_str(&matches, arg_collection),
-        config_file: get_value_as_str(&matches, arg_config),
-        delay: get_value_as_u64(&matches, arg_delay),
-        execution_time: get_value_as_u64(&matches, arg_execution_time),
-        handle_cookies: matches.is_present(arg_cookies),
-        iterations: get_value_as_u64(&matches, arg_iterations),
-        ramp_up: get_value_as_u64(&matches, arg_ramp_up),
-        report: get_value_as_str(&matches, arg_report),
-        threads: get_value_as_u64(&matches, arg_threads),
+        command: subcommand.to_string(),
+        collection_file: get_value_as_str(subcommand_args, arg_collection),
+        config_file: get_value_as_str(subcommand_args, arg_config),
+        delay: get_value_as_u64(subcommand_args, arg_delay),
+        execution_time: get_value_as_u64(subcommand_args, arg_execution_time),
+        handle_cookies: subcommand_args.unwrap().is_present(arg_cookies),
+        iterations: get_value_as_u64(subcommand_args, arg_iterations),
+        ramp_up: get_value_as_u64(subcommand_args, arg_ramp_up),
+        report: get_value_as_str(subcommand_args, arg_report),
+        threads: get_value_as_u64(subcommand_args, arg_threads),
     };
 
     //More validations on args
@@ -127,21 +141,25 @@ pub fn get_args() -> Result<Args, ()> {
     Ok(args)
 }
 
-fn get_value_as_str(matches: &ArgMatches, arg: &str) -> String {
-    match matches.value_of(arg) {
-        Some(x) => x.to_string(),
+fn get_value_as_str(matches: Option<&ArgMatches>, arg: &str) -> String {
+    match matches {
+        Some(x) => match x.value_of(arg) {
+                        Some(y) => y.to_string(),
+                        None => "".to_string()
+        },
         None => "".to_string()
     }
 }
 
-fn get_value_as_u64(matches: &ArgMatches, arg: &str) -> u64 {
-    match matches.value_of(arg) {
-        Some(x) => {
-            let arg: String = String::from(x);
-            let uarg: u64 = arg.parse::<u64>().unwrap();
-            uarg
+fn get_value_as_u64(matches: Option<&ArgMatches>, arg: &str) -> u64 {
+    match matches {
+        Some(x) => match x.value_of(arg) {
+                        Some(y) => {
+                            let arg: String = String::from(y);
+                            arg.parse::<u64>().unwrap()
+                        },
+                        None => 0
         },
-
         None => 0
-    } 
+    }
 }

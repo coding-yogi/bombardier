@@ -1,5 +1,4 @@
 use std::fs;
-use std::io::Write;
 use std::collections::HashMap;
 
 use log::{error};
@@ -20,10 +19,6 @@ pub fn create_file(path: &str) -> fs::File {
             panic!(s)
         } 
     }
-}
-
-pub fn write_to_file(file: &mut fs::File, stat: &str) {
-    file.write(stat.as_bytes());
 }
 
 pub fn find_and_replace(mut content: String, map: &HashMap<String, String>) -> String {
