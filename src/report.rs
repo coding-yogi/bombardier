@@ -54,33 +54,7 @@ pub fn write_stats_to_csv(file: &mut fs::File, stat: &str) {
 
 pub fn display(report_file: String) {
 
-    let mut stats: Vec<Stats> = Vec::new();
-    let mut names: HashSet<String> = HashSet::new();
-
-    let rdr = csv::ReaderBuilder::new().has_headers(true).trim(Trim::All).from_path(report_file.as_str());
-    match rdr {
-        Ok(mut r) => {
-            for stat in r.deserialize() {
-                match stat {
-                    Ok(s) => {
-                        let s: Stats = s;
-                        if !names.contains(&s.name) {
-                            names.insert(s.name.clone());
-                        }
-                        stats.push(s);
-                    },
-                    Err(err) => {
-                        error!("Unable to deserialize Stats: {}", err);
-                        process::exit(-1);
-                    }
-                }
-            }   
-        },
-        Err(err) => {
-            error!("Unable to read report file {}", err);
-            process::exit(-1);
-        }
-    }
+    let (stats, names) = get_stats(&report_file);
 
     let mut table = Table::new();
     table.add_row(row![FY => "Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "90%", "95%", "99%", "Errors", "Error Rate"]);
@@ -125,6 +99,39 @@ pub fn display(report_file: String) {
 
     table.printstd();
     print_summary_table(et, total_hits, total_errors);
+}
+
+fn get_stats(report_file: &str) -> (Vec<Stats>, HashSet<String>) {
+
+    let mut stats: Vec<Stats> = Vec::new();
+    let mut names: HashSet<String> = HashSet::new();
+
+    let rdr = csv::ReaderBuilder::new().has_headers(true).trim(Trim::All).from_path(report_file);
+    match rdr {
+        Ok(mut r) => {
+            for stat in r.deserialize() {
+                match stat {
+                    Ok(s) => {
+                        let s: Stats = s;
+                        if !names.contains(&s.name) {
+                            names.insert(s.name.clone());
+                        }
+                        stats.push(s);
+                    },
+                    Err(err) => {
+                        error!("Unable to deserialize Stats: {}", err);
+                        process::exit(-1);
+                    }
+                }
+            }   
+        },
+        Err(err) => {
+            error!("Unable to read report file {}", err);
+            process::exit(-1);
+        }
+    }
+
+    (stats, names)
 }
 
 fn get_percentile(sorted_vector: &Vec<u128>, p: usize) -> u128 {
