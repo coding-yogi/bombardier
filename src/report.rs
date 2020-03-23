@@ -6,7 +6,7 @@ use std::process;
 use std::io::Write;
 use std::collections::HashSet;
 
-use chrono::{Utc, DateTime};
+use chrono::{Utc, DateTime, Duration};
 use csv::Trim;
 use log::{error, warn};
 use prettytable::{Table, row, cell};
@@ -62,7 +62,7 @@ pub fn display(report_file: String) {
     let mut total_hits = 0;
     let mut total_errors = 0.0;
 
-    let starttime = DateTime::parse_from_rfc3339(&stats[0].timestamp).unwrap();
+    let starttime = DateTime::parse_from_rfc3339(&stats[0].timestamp).unwrap() - Duration::milliseconds(stats[0].latency as i64);
     let endtime = DateTime::parse_from_rfc3339(&stats[stats.len()-1].timestamp).unwrap();
     let et = endtime.signed_duration_since(starttime).num_seconds();
 
