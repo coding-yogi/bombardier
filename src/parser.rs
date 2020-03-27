@@ -30,6 +30,8 @@ pub struct Request {
 pub struct RequestDetails {
     pub method: String,
     pub url: Url,
+
+    #[serde(default)]
     pub body: Body,
 
     #[serde(default)]

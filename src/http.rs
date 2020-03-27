@@ -3,10 +3,11 @@ use crate::parser;
 
 
 use std::time;
+use std::process;
 use std::str::FromStr;
 use std::collections::HashMap;
 
-use log::debug;
+use log::{debug, error};
 use reqwest::{blocking::{Client, Response}, Method};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
@@ -49,8 +50,19 @@ pub fn execute(client: &Client, request: parser::Request) -> Result<(Response, u
             for data in &details.body.formdata {
                 match data.param_type.as_ref() {
                     "text" => form = form.text(data.key.clone(), data.value.clone()),
-                    "file" => form = form.file("file", &data.src).unwrap(),         
-                    _ => panic!("form data should have either text or file param")
+                    "file" => {
+                        match form.file("file", &data.src) {
+                            Ok(f) => form = f,
+                            Err(err) => {
+                                error!("Error occured while reading file for form param: {}", err);
+                                process::exit(-1);
+                            }
+                        }     
+                    }
+                    _ => {
+                        error!("form data should have either text or file param");
+                        process::exit(-1);
+                    }
                 }
             }
 
@@ -66,7 +78,7 @@ pub fn execute(client: &Client, request: parser::Request) -> Result<(Response, u
             builder = builder.form(&params)
         },
         "raw" => builder = builder.body(details.body.raw.clone()),
-        _ => panic!("Body mode not found")
+        _ => ()
     }
 
     let start_time = time::Instant::now();
