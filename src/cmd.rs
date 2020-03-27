@@ -12,6 +12,7 @@ pub struct Args {
     pub ramp_up: u64,
     pub report: String,
     pub threads: u64,
+    pub continue_on_failure: bool,
 }
 
 pub fn get_args() -> Result<Args, ()> {
@@ -24,6 +25,7 @@ pub fn get_args() -> Result<Args, ()> {
     let arg_ramp_up = "rampup";
     let arg_report = "report";
     let arg_threads = "threads";
+    let arg_continue_on_failure = "continue on failure";
     
     let is_json_file = |s: String| {
         match s.ends_with(".json") {
@@ -104,7 +106,11 @@ pub fn get_args() -> Result<Args, ()> {
                 .arg(Arg::with_name(arg_cookies)
                         .short("h")
                         .display_order(7)
-                        .help("handle cookies")))
+                        .help("handle cookies"))
+                .arg(Arg::with_name(arg_continue_on_failure)
+                        .short("o")
+                        .display_order(8)
+                        .help("continue on failure")))
         .subcommand(SubCommand::with_name("report")
                 .about("Generates the report from report file")
                 .arg(Arg::with_name(arg_report)
@@ -125,11 +131,12 @@ pub fn get_args() -> Result<Args, ()> {
         config_file: get_value_as_str(subcommand_args, arg_config),
         delay: get_value_as_u64(subcommand_args, arg_delay),
         execution_time: get_value_as_u64(subcommand_args, arg_execution_time),
-        handle_cookies: subcommand_args.unwrap().is_present(arg_cookies),
+        handle_cookies: get_value_as_bool(subcommand_args, arg_cookies),
         iterations: get_value_as_u64(subcommand_args, arg_iterations),
         ramp_up: get_value_as_u64(subcommand_args, arg_ramp_up),
         report: get_value_as_str(subcommand_args, arg_report),
         threads: get_value_as_u64(subcommand_args, arg_threads),
+        continue_on_failure: get_value_as_bool(subcommand_args,arg_continue_on_failure),
     };
 
     //More validations on args
@@ -139,6 +146,13 @@ pub fn get_args() -> Result<Args, ()> {
     }
 
     Ok(args)
+}
+
+fn get_value_as_bool(matches: Option<&ArgMatches>, arg: &str) -> bool {
+    match matches {
+        Some(x) => x.is_present(arg),
+        None => false
+    }
 }
 
 fn get_value_as_str(matches: Option<&ArgMatches>, arg: &str) -> String {

@@ -9,7 +9,7 @@ use std::{thread, time};
 use std::ops::Deref;
 use std::collections::HashMap;
 
-use log::{debug};
+use log::{debug, warn};
 use reqwest::{blocking::Response};
 
 pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
@@ -60,10 +60,16 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                     let (res, lat) = http::execute(&client_clone, processed_request).unwrap();
 
                     debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
-                    let new_stats = report::Stats::new(request.name.clone(), res.status().as_u16(), lat);
+                    let new_stats = report::Stats::new(&request.name, res.status().as_u16(), lat);
                     report::write_stats_to_csv(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", new_stats));
+
+                    //check status
+                    if !args_clone.continue_on_failure && new_stats.get_status() > 399 {
+                        warn!("Request {} failed. Skipping rest of the iteration", &request.name);
+                        break;
+                    }
+
                     update_env_map(res, &mut env_map_clone); //process response and update env_map
-                    
                     thread::sleep(time::Duration::from_millis(args_clone.delay)); //wait per request delay
                 }
             }

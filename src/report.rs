@@ -23,13 +23,17 @@ pub struct Stats {
 }
 
 impl Stats {
-    pub fn new(name: String, status: u16, latency: u128) -> Stats {
+    pub fn new(name: &str, status: u16, latency: u128) -> Stats {
         Stats {
             timestamp: Utc::now().to_rfc3339(),
-            name,
+            name: String::from(name),
             status,
             latency
         }
+    }
+
+    pub fn get_status(&self) -> u16 {
+        self.status
     }
 }
 
