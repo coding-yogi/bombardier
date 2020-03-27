@@ -26,12 +26,12 @@ pub fn get_sync_client(args: &cmd::Args)  -> Client {
 
 pub fn execute(client: &Client, request: parser::Request) -> Result<(Response, u128), Box<dyn std::error::Error + Send + Sync>>  {
     let details = &request.request_details;
-    let method = Method::from_bytes(details.method.as_bytes()).unwrap();
+    let method = Method::from_bytes(details.method.as_bytes())?;
     let uri = &details.url.raw;
     let mut headers = HeaderMap::new();
     for header in &details.headers {
-        headers.insert(HeaderName::from_str(header.key.as_ref()).unwrap(), 
-        HeaderValue::from_str(header.value.as_str()).unwrap());
+        headers.insert(HeaderName::from_str(header.key.as_ref())?, 
+        HeaderValue::from_str(header.value.as_str())?);
     }
 
     let mut builder = client.request(method, uri).headers(headers);

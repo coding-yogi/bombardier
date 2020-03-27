@@ -9,7 +9,7 @@ use std::{thread, time};
 use std::ops::Deref;
 use std::collections::HashMap;
 
-use log::{debug, warn};
+use log::{debug, error, warn};
 use reqwest::{blocking::Response};
 
 pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
@@ -57,19 +57,29 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                     debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, request.name);
 
                     let processed_request = preprocess(&request, &env_map_clone); //transform request
-                    let (res, lat) = http::execute(&client_clone, processed_request).unwrap();
+                    match http::execute(&client_clone, processed_request) {
+                        Ok((res, lat)) => {
+                            debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
+                            let new_stats = report::Stats::new(&request.name, res.status().as_u16(), lat);
+                            report::write_stats_to_csv(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", new_stats));
 
-                    debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
-                    let new_stats = report::Stats::new(&request.name, res.status().as_u16(), lat);
-                    report::write_stats_to_csv(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", new_stats));
+                            //check status
+                            if !args_clone.continue_on_failure && is_failed_request(new_stats.get_status()) {
+                                warn!("Request {} failed. Skipping rest of the iteration", &request.name);
+                                break;
+                            }
 
-                    //check status
-                    if !args_clone.continue_on_failure && new_stats.get_status() > 399 {
-                        warn!("Request {} failed. Skipping rest of the iteration", &request.name);
-                        break;
+                            update_env_map(res, &mut env_map_clone); //process response and update env_map
+                        },
+                        Err(err) => {
+                            error!("Error occured while executing request {}, : {}", &request.name, err);
+                            if !args_clone.continue_on_failure {
+                                warn!("Skipping rest of the iteration");
+                                break;
+                            }
+                        }
                     }
 
-                    update_env_map(res, &mut env_map_clone); //process response and update env_map
                     thread::sleep(time::Duration::from_millis(args_clone.delay)); //wait per request delay
                 }
             }
@@ -86,6 +96,10 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
 fn is_execution_time_over(start_time: time::Instant, duration: &u64) -> bool {
     start_time.elapsed().as_secs() > *duration
+}
+
+fn is_failed_request(status: u16) -> bool {
+    status > 399
 }
 
 fn update_env_map(response: Response, env_map: &mut HashMap<String, String>) {
