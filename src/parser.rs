@@ -126,7 +126,7 @@ fn get_request_from_scenario(scenario: &Scenario) -> Request {
 }
 
 pub fn get_env(json: &str) -> HashMap<String, String> {
-    let env_json: Env = serde_json::from_str(&json).unwrap();
+    let env_json: Env = serde_json::from_str(&json).expect("Unable to parse Json");
     let mut env_map: HashMap<String, String> = HashMap::new();
     for kv in env_json.key_values {
         env_map.insert(kv.key, kv.value);

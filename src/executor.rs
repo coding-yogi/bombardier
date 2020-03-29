@@ -14,15 +14,15 @@ use reqwest::{blocking::Response};
 
 pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
 
-    let no_of_threads = args.threads;
+    let no_of_threads = args.thread_count;
     let no_of_iterations = args.iterations;
     let iteration_based_execution = no_of_iterations > 0;
-    let thread_delay = args.ramp_up * 1000 / no_of_threads;
+    let thread_delay = args.rampup_time * 1000 / no_of_threads;
 
     let start_time = time::Instant::now();
     let execution_time = args.execution_time;
 
-    let report_file = report::create_file(&args.report);
+    let report_file = report::create_file(&args.report_file);
    
     let client = http::get_sync_client(&args);
     let client_arc = Arc::new(client);
@@ -64,7 +64,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                             report::write_stats_to_csv(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", new_stats));
 
                             //check status
-                            if !args_clone.continue_on_failure && is_failed_request(new_stats.get_status()) {
+                            if !args_clone.continue_on_error && is_failed_request(new_stats.get_status()) {
                                 warn!("Request {} failed. Skipping rest of the iteration", &request.name);
                                 break;
                             }
@@ -73,14 +73,14 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                         },
                         Err(err) => {
                             error!("Error occured while executing request {}, : {}", &request.name, err);
-                            if !args_clone.continue_on_failure {
+                            if !args_clone.continue_on_error {
                                 warn!("Skipping rest of the iteration");
                                 break;
                             }
                         }
                     }
 
-                    thread::sleep(time::Duration::from_millis(args_clone.delay)); //wait per request delay
+                    thread::sleep(time::Duration::from_millis(args_clone.thread_delay)); //wait per request delay
                 }
             }
         });

@@ -1,11 +1,17 @@
 use std::fs;
+use std::process;
 use std::collections::HashMap;
 
 use log::{error};
 
 pub fn get_content(path: &str) -> String {
-    let content: String = fs::read_to_string(path)
-        .expect("Something went wrong reading the file");
+    let content: String = match fs::read_to_string(path) {
+        Err(err) => {
+            error!("Something went wrong reading the file on path {} : {}", path, err);
+            process::exit(-1)
+        },
+        Ok(s) => s
+    };
 
     content
 }
@@ -15,8 +21,8 @@ pub fn create_file(path: &str) -> fs::File {
     match report_file {
         Ok(f) => f,
         Err(s) => {
-            error!("Unable to create report file");
-            panic!(s)
+            error!("Unable to create report file: {}", s);
+            process::exit(-1);
         } 
     }
 }

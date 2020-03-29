@@ -21,7 +21,7 @@ fn main() {
             
             //Get config
             info!("Reading environments file");
-            let config_content = file::get_content(&args.config_file);
+            let config_content = file::get_content(&args.environment_file);
             let env_map = parser::get_env(&config_content);
 
             info!("Generating bombardier requests");
@@ -35,7 +35,7 @@ fn main() {
         },
         "report" => {
             info!("Generating report");
-            report::display(args.report); 
+            report::display(args.report_file); 
         },
         _ => {
             error!("Invalid command");
