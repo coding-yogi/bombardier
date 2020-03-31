@@ -95,16 +95,16 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
                     thread::sleep(time::Duration::from_millis(args_clone.thread_delay)); //wait per request delay
                 }
-                
-                let builder_clone = influx_clone.deref().try_clone();
-                let builder = match builder_clone {
-                    None => panic!("cannot be cloned"),
-                    Some(b) => b,
-                };
 
-                rt.spawn(async {
-                    influxdb::write_stats(builder, vec_stats).await;
-                });
+                let builder_clone = influx_clone.deref().try_clone();
+                match builder_clone {
+                    None => (),
+                    Some(b) => {
+                        rt.spawn(async {
+                            influxdb::write_stats(b, vec_stats).await;
+                        });
+                    },
+                };
             }
         });
 

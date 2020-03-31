@@ -2,6 +2,7 @@
 use crate::cmd;
 use crate::report;
 
+use log::error;
 use chrono::DateTime;
 use reqwest::{Client, RequestBuilder};
 
@@ -21,5 +22,8 @@ pub async fn write_stats(request: RequestBuilder, stats: Vec<report::Stats>) {
         body, stat.name, stat.latency, stat.status, DateTime::parse_from_rfc3339(&stat.timestamp).unwrap().timestamp_millis());
     }
 
-    request.body(body).send().await;
+    match request.body(body).send().await {
+        Ok(_res) => (),
+        Err(err) => error!("Error writing to influxdb: {}", err)
+    };
 }
