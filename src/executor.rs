@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 use log::{debug, error, warn};
 use reqwest::{blocking::Response};
-
+use tokio::runtime::Builder;
 
 pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
 
@@ -47,9 +47,11 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
         let mut env_map_clone = env_map.clone();
         let report_clone = report_arc.clone();
         
-
         let mut thread_iteration = 0;
+        let rt = Builder::new().threaded_scheduler().enable_all().build().unwrap();
+
         let handle = thread::spawn(move || {
+
             loop {
                 if iteration_based_execution {
                     if thread_iteration >= no_of_iterations {
@@ -60,7 +62,6 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                 }
 
                 thread_iteration += 1; //increment iteration
-
                 let mut vec_stats = vec![];
             
                 //looping thru requests
@@ -94,21 +95,16 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
                     thread::sleep(time::Duration::from_millis(args_clone.thread_delay)); //wait per request delay
                 }
-
-                debug!("Writing to influx");
+                
                 let builder_clone = influx_clone.deref().try_clone();
                 let builder = match builder_clone {
                     None => panic!("cannot be cloned"),
                     Some(b) => b,
                 };
 
-                tokio::runtime::Runtime::new().unwrap().block_on(async {
+                rt.spawn(async {
                     influxdb::write_stats(builder, vec_stats).await;
                 });
-
-                /*tokio::runtime::Runtime::new().unwrap().spawn(async {
-                    influxdb::write_stats(builder, vec_stats).await;
-                });*/
             }
         });
 
