@@ -18,16 +18,14 @@ fn main() {
         "bombard" => {
             // Get scenarios
             info!("Reading collections file");
-            let mut contents = file::get_content(&args.collection_file);
+            let contents = file::get_content(&args.collection_file);
             
             //Get config
             info!("Reading environments file");
-            let config_content = file::get_content(&args.environment_file);
-            let env_map = parser::get_env(&config_content);
+            let env_map = parser::get_env(&args.environment_file);
 
             info!("Generating bombardier requests");
-            contents = file::find_and_replace(contents, &env_map);
-            let requests = parser::parse_requests(&contents);
+            let requests = parser::parse_requests(contents, &env_map);
            
             info!("Bombarding !!!");
             executor::execute(args, env_map, requests);

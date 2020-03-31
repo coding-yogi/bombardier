@@ -1,3 +1,4 @@
+use crate::file;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
@@ -96,7 +97,9 @@ pub struct KeyValue {
     pub value: String
 }
 
-pub fn parse_requests(json: &str) -> Vec<Request> {
+pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Vec<Request> {
+
+    let json = file::find_and_replace(content, &env_map);
     let root: Root = serde_json::from_str(&json).expect("Unable to parse Json");
 
     let mut requests = Vec::<Request>::new();
@@ -125,8 +128,9 @@ fn get_request_from_scenario(scenario: &Scenario) -> Request {
     }
 }
 
-pub fn get_env(json: &str) -> HashMap<String, String> {
-    let env_json: Env = serde_json::from_str(&json).expect("Unable to parse Json");
+pub fn get_env(env_file: &str) -> HashMap<String, String> {
+    let config_content = file::get_content(env_file);
+    let env_json: Env = serde_json::from_str(&config_content).expect("Unable to parse Json");
     let mut env_map: HashMap<String, String> = HashMap::new();
     for kv in env_json.key_values {
         env_map.insert(kv.key, kv.value);
