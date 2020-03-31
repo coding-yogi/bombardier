@@ -4,3 +4,4 @@
 examples
 .DS_store
 *.csv
+*.json

@@ -6,8 +6,7 @@ use clap::{Arg, App, ArgMatches, SubCommand};
 use serde::{Serialize, Deserialize, Deserializer, de::Error};
 use log::{error, info, warn};
 
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Args {
 
     #[serde(default)]
@@ -19,6 +18,7 @@ pub struct Args {
     #[serde(deserialize_with = "check_json_file")]
     pub collection_file: String,
 
+    #[serde(default = "default_report_file")]
     pub report_file: String,
 
     #[serde(deserialize_with = "check_non_zero")]
@@ -46,16 +46,19 @@ pub struct Args {
     pub influxdb: InfluxDB
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct InfluxDB {
-    pub host: String,
-    pub port: u64,
+    pub url: String,
+    pub username: String,
+    pub password: String,
     pub dbname: String,
 }
 
+fn default_report_file() -> String {
+    String::from("report.csv")
+}
 
 pub fn get_args() -> Result<Args, Box<dyn std::error::Error + Send + Sync>> {
-
     let config_arg_name = "config json file";
     let config_arg = Arg::with_name(config_arg_name)
                         .short("c")
@@ -83,6 +86,7 @@ pub fn get_args() -> Result<Args, Box<dyn std::error::Error + Send + Sync>> {
         .get_matches();
 
     let (subcommand, subcommand_args) = matches.subcommand();
+
     if subcommand == "" {
         error!("No command found. Command should either be 'bombard' or 'report'");
         process::exit(-1);

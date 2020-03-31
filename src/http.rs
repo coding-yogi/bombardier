@@ -8,6 +8,7 @@ use std::str::FromStr;
 use std::collections::HashMap;
 
 use log::{debug, error};
+use reqwest::Client as AsynClient;
 use reqwest::{blocking::{Client, Response}, Method};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
@@ -23,6 +24,13 @@ pub fn get_sync_client(args: &cmd::Args)  -> Client {
 
     client
 }
+
+pub fn get_async_client() -> AsynClient {
+    AsynClient::builder()
+        .user_agent("bombardier")
+        .build()
+        .expect("Unable to create async client")
+} 
 
 pub fn execute(client: &Client, request: parser::Request) -> Result<(Response, u128), Box<dyn std::error::Error + Send + Sync>>  {
     let details = &request.request_details;

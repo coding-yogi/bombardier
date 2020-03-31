@@ -3,6 +3,7 @@ use crate::file;
 use crate::http;
 use crate::parser;
 use crate::report;
+use crate::influxdb;
 
 use std::sync::{Arc, Mutex};
 use std::{thread, time};
@@ -11,6 +12,7 @@ use std::collections::HashMap;
 
 use log::{debug, error, warn};
 use reqwest::{blocking::Response};
+
 
 pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
 
@@ -26,6 +28,11 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
    
     let client = http::get_sync_client(&args);
     let client_arc = Arc::new(client);
+
+    let influx_client = http::get_async_client();
+    let influx_req = influxdb::build_request(&influx_client, &args.influxdb);
+    let influx_arc = Arc::new(influx_req);
+
     let args_arc = Arc::new(args);
     let requests = Arc::new(requests);
 
@@ -35,9 +42,11 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     for thread_cnt in 0..no_of_threads {
         let requests_clone = requests.clone();
         let client_clone = client_arc.clone();
+        let influx_clone = influx_arc.clone();
         let args_clone = args_arc.clone();
         let mut env_map_clone = env_map.clone();
         let report_clone = report_arc.clone();
+        
 
         let mut thread_iteration = 0;
         let handle = thread::spawn(move || {
@@ -52,6 +61,8 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
                 thread_iteration += 1; //increment iteration
 
+                let mut vec_stats = vec![];
+            
                 //looping thru requests
                 for request in requests_clone.deref() {
                     debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, request.name);
@@ -61,10 +72,11 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                         Ok((res, lat)) => {
                             debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
                             let new_stats = report::Stats::new(&request.name, res.status().as_u16(), lat);
-                            report::write_stats_to_csv(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", new_stats));
+                            report::write_stats_to_csv(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", &new_stats));
+                            vec_stats.push(new_stats);
 
                             //check status
-                            if !args_clone.continue_on_error && is_failed_request(new_stats.get_status()) {
+                            if !args_clone.continue_on_error && is_failed_request(res.status().as_u16()) {
                                 warn!("Request {} failed. Skipping rest of the iteration", &request.name);
                                 break;
                             }
@@ -82,6 +94,21 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
                     thread::sleep(time::Duration::from_millis(args_clone.thread_delay)); //wait per request delay
                 }
+
+                debug!("Writing to influx");
+                let builder_clone = influx_clone.deref().try_clone();
+                let builder = match builder_clone {
+                    None => panic!("cannot be cloned"),
+                    Some(b) => b,
+                };
+
+                tokio::runtime::Runtime::new().unwrap().block_on(async {
+                    influxdb::write_stats(builder, vec_stats).await;
+                });
+
+                /*tokio::runtime::Runtime::new().unwrap().spawn(async {
+                    influxdb::write_stats(builder, vec_stats).await;
+                });*/
             }
         });
 

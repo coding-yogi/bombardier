@@ -4,6 +4,7 @@ mod cmd;
 mod executor;
 mod http;
 mod report;
+mod influxdb;
 
 use log::{info, error};
 

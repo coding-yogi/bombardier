@@ -16,10 +16,10 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Stats {
-    timestamp: String,
-    name: String,
-    status: u16,
-    latency: u128
+    pub timestamp: String,
+    pub name: String,
+    pub status: u16,
+    pub latency: u128
 }
 
 impl Stats {
@@ -30,10 +30,6 @@ impl Stats {
             status,
             latency
         }
-    }
-
-    pub fn get_status(&self) -> u16 {
-        self.status
     }
 }
 
