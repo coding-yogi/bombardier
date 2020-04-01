@@ -51,7 +51,6 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
         let rt = Builder::new().threaded_scheduler().enable_all().build().unwrap();
 
         let handle = thread::spawn(move || {
-
             loop {
                 if iteration_based_execution {
                     if thread_iteration >= no_of_iterations {
@@ -106,6 +105,8 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                     },
                 };
             }
+
+            thread::sleep(time::Duration::from_millis(500)); //Tempfix for influxdb tasks to finish
         });
 
         handles.push(handle);
