@@ -5,6 +5,8 @@ use crate::parser;
 use crate::report;
 use crate::influxdb;
 
+use async_std::task;
+
 use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use std::ops::Deref;
@@ -72,16 +74,25 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                         Ok((res, lat)) => {
                             debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
                             let new_stats = report::Stats::new(&request.name, res.status().as_u16(), lat);
-                            report::write_stats_to_csv(&mut report_clone.as_ref().lock().unwrap(), &format!("{}", &new_stats));
+                            let new_stats_clone = new_stats.clone();
+                            let report_clone2 = report_clone.clone();
+
+                            //Write to CSV
+                            let write_csv_handle = task::spawn(async move {
+                                report::write_stats_to_csv(&mut report_clone2.as_ref().lock().unwrap(), &format!("{}", &new_stats_clone));
+                            });
+
                             vec_stats.push(new_stats);
 
                             //check status
                             if !args_clone.continue_on_error && is_failed_request(res.status().as_u16()) {
                                 warn!("Request {} failed. Skipping rest of the iteration", &request.name);
+                                task::block_on(async {write_csv_handle.await}); //for for csv writing
                                 break;
                             }
 
                             update_env_map(res, &mut env_map_clone); //process response and update env_map
+                            task::block_on(async {write_csv_handle.await}) //for for csv writing
                         },
                         Err(err) => {
                             error!("Error occured while executing request {}, : {}", &request.name, err);
