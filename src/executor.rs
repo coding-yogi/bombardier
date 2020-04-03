@@ -71,9 +71,9 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
                     let processed_request = preprocess(&request, &env_map_clone); //transform request
                     match http::execute(&client_clone, processed_request) {
-                        Ok((res, lat)) => {
+                        Ok((response, lat)) => {
                             debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
-                            let new_stats = report::Stats::new(&request.name, res.status().as_u16(), lat);
+                            let new_stats = report::Stats::new(&request.name, response.status().as_u16(), lat);
                             let new_stats_clone = new_stats.clone();
                             let report_clone2 = report_clone.clone();
 
@@ -85,13 +85,13 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                             vec_stats.push(new_stats);
 
                             //check status
-                            if !args_clone.continue_on_error && is_failed_request(res.status().as_u16()) {
+                            if !args_clone.continue_on_error && is_failed_request(response.status().as_u16()) {
                                 warn!("Request {} failed. Skipping rest of the iteration", &request.name);
                                 task::block_on(async {write_csv_handle.await}); //for for csv writing
                                 break;
                             }
 
-                            update_env_map(res, &mut env_map_clone); //process response and update env_map
+                            update_env_map(response, &request, &mut env_map_clone); //process response and update env_map
                             task::block_on(async {write_csv_handle.await}) //for for csv writing
                         },
                         Err(err) => {
@@ -137,7 +137,7 @@ fn is_failed_request(status: u16) -> bool {
     status > 399
 }
 
-fn update_env_map(response: Response, env_map: &mut HashMap<String, String>) {
+fn update_env_map(response: Response, request: &parser::Request, env_map: &mut HashMap<String, String>) {
     let resp_body = response.text();
 }
 

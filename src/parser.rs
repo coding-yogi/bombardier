@@ -1,6 +1,11 @@
 use crate::file;
+use std::process;
 use std::collections::HashMap;
+
+use log::{debug,error};
+use regex::Regex;
 use serde::{Serialize, Deserialize};
+use serde_json::{Map, Value};
 
 #[derive(Deserialize, Debug)]
 pub struct Root {
@@ -12,11 +17,17 @@ pub struct Root {
 pub struct Scenario {
     pub name: String,
 
+    #[serde(default)]
+    pub event: Vec<Event>,
+
     #[serde(rename = "request", default)]
     pub request_details: RequestDetails,
 
     #[serde(rename = "item", default)]
-    pub requests: Vec<Request>
+    pub requests: Vec<Request>,
+
+    #[serde(default)]
+    pub extractor: Extractor
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -24,7 +35,13 @@ pub struct Request {
     pub name: String,
 
     #[serde(rename = "request")]
-    pub request_details: RequestDetails
+    pub request_details: RequestDetails,
+
+    #[serde(default)]
+    pub event: Vec<Event>,
+
+    #[serde(default)]
+    pub extractor: Extractor
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
@@ -97,8 +114,30 @@ pub struct KeyValue {
     pub value: String
 }
 
-pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Vec<Request> {
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Event {
+    pub listen: String,
+    pub script: Script
+}
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Script {
+    pub exec: Vec<String>
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct Extractor {
+    #[serde(default)]
+    pub json_path: Map<String, Value>,
+    
+    #[serde(default)]
+    pub xpath: Map<String, Value>,
+
+    #[serde(default)]
+    pub regex: Map<String, Value>,
+}
+
+pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Vec<Request> {
     let json = file::find_and_replace(content, &env_map);
     let root: Root = serde_json::from_str(&json).expect("Unable to parse Json");
 
@@ -110,10 +149,13 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Vec
 
     for scenario in root.scenarios {
         if scenario.request_details.method != "" {
-            requests.push(get_request_from_scenario(&scenario));
+            let mut request = get_request_from_scenario(&scenario);
+            request = get_extractor_json(request);
+            requests.push(request);
         }
         
-        for request in scenario.requests {
+        for mut request in scenario.requests {
+            request = get_extractor_json(request);
             requests.push(request);
         }
     } 
@@ -124,7 +166,9 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Vec
 fn get_request_from_scenario(scenario: &Scenario) -> Request {
     Request {
         name: scenario.name.clone(),
-        request_details: scenario.request_details.clone()
+        event: scenario.event.clone(),
+        request_details: scenario.request_details.clone(),
+        extractor: scenario.extractor.clone()
     }
 }
 
@@ -137,4 +181,43 @@ pub fn get_env(env_file: &str) -> HashMap<String, String> {
     }
 
     env_map
+}
+
+fn get_extractor_json(mut request: Request) -> Request {
+    let script = get_script(&request);
+
+    let pattern = r#"var\s+bombardier\s*=\s*([{]{1}([,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]|".*?")+}{1})"#;
+    let re = Regex::new(pattern).unwrap();
+    let extractor_json = match re.captures(&script) {
+        Some(cap) => cap[1].to_string(),
+        None => String::from("")
+    };
+
+    if extractor_json != "" {
+        debug!("Extractor json found for request {}: {}", request.name, extractor_json);
+        let extractor: Extractor = match serde_json::from_str(&extractor_json) {
+            Err(err) => {
+                error!("Json provider as bombardier variable for request {} is not valid: {}", request.name, err);
+                process::exit(-1)
+            },
+            Ok(e) => e
+        };
+    
+        request.extractor = extractor;
+    }
+    
+    request
+}
+
+fn get_script(request: &Request) -> String {
+    match request.event.iter().find(|e|  e.listen == "test") {
+        None => String::from(""),
+        Some(s) => {
+            s.script
+            .exec
+            .iter()
+            .flat_map(|s| s.chars())
+            .collect()
+        }
+    }
 }
