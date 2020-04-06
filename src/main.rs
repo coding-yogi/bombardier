@@ -5,6 +5,7 @@ mod executor;
 mod http;
 mod report;
 mod influxdb;
+mod postprocessor;
 
 use log::{info, error};
 

@@ -4,6 +4,7 @@ use crate::http;
 use crate::parser;
 use crate::report;
 use crate::influxdb;
+use crate::postprocessor;
 
 use async_std::task;
 
@@ -13,7 +14,6 @@ use std::ops::Deref;
 use std::collections::HashMap;
 
 use log::{debug, error, warn};
-use reqwest::{blocking::Response};
 use tokio::runtime::Builder;
 
 pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
@@ -67,12 +67,10 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
             
                 //looping thru requests
                 for request in requests_clone.deref() {
-                    debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, request.name);
-
                     let processed_request = preprocess(&request, &env_map_clone); //transform request
+                    debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
                     match http::execute(&client_clone, processed_request) {
                         Ok((response, lat)) => {
-                            debug!("Writing stats for {}-{}", thread_cnt, thread_iteration);
                             let new_stats = report::Stats::new(&request.name, response.status().as_u16(), lat);
                             let new_stats_clone = new_stats.clone();
                             let report_clone2 = report_clone.clone();
@@ -91,7 +89,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                                 break;
                             }
 
-                            update_env_map(response, &request, &mut env_map_clone); //process response and update env_map
+                            postprocessor::process(response, &request, &mut env_map_clone); //process response and update env_map
                             task::block_on(async {write_csv_handle.await}) //for for csv writing
                         },
                         Err(err) => {
@@ -111,7 +109,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                     None => (),
                     Some(b) => {
                         rt.spawn(async {
-                            influxdb::write_stats(b, vec_stats).await;
+                            influxdb::write_stats(b, vec_stats).await; //Write to influxDB
                         });
                     },
                 };
@@ -137,12 +135,15 @@ fn is_failed_request(status: u16) -> bool {
     status > 399
 }
 
-fn update_env_map(response: Response, request: &parser::Request, env_map: &mut HashMap<String, String>) {
-    let resp_body = response.text();
-}
-
 fn preprocess(request: &parser::Request, env_map: &HashMap<String, String>) -> parser::Request {
     let mut s_request = serde_json::to_string(request).expect("Request cannot be serialized");
     s_request = file::find_and_replace(s_request, &env_map);
-    serde_json::from_str(&s_request).expect("Unable to parse Json")
+    match serde_json::from_str(&s_request) {
+        Ok(r) => r,
+        Err(err) => {
+            error!("Unable to deserialize request object after parameter replacement. Returning original request");
+            error!("String: {}, Error: {}", s_request, err);
+            request.clone()
+        }
+    }
 }

@@ -31,8 +31,8 @@ pub fn find_and_replace(mut content: String, map: &HashMap<String, String>) -> S
     if content.contains("{{") { //Avoid unnecessary looping, might be tricked by json but would avoid most
         for (k, v) in map {
             let replaced_string = &format!("{{{{{}}}}}", k);
-            let replacing_string = v;
-            content = content.replace(replaced_string, replacing_string);
+            let replacing_string = v.replace(r#"""#, r#"\""#);
+            content = content.replace(replaced_string, &replacing_string);
         }
     }
     

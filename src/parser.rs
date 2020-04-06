@@ -2,7 +2,7 @@ use crate::file;
 use std::process;
 use std::collections::HashMap;
 
-use log::{debug,error};
+use log::{error};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 use serde_json::{Map, Value};
@@ -30,7 +30,7 @@ pub struct Scenario {
     pub extractor: Extractor
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Request {
     pub name: String,
 
@@ -128,7 +128,7 @@ pub struct Script {
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct Extractor {
     #[serde(default)]
-    pub json_path: Map<String, Value>,
+    pub gjson_path: Map<String, Value>,
     
     #[serde(default)]
     pub xpath: Map<String, Value>,
@@ -194,7 +194,6 @@ fn get_extractor_json(mut request: Request) -> Request {
     };
 
     if extractor_json != "" {
-        debug!("Extractor json found for request {}: {}", request.name, extractor_json);
         let extractor: Extractor = match serde_json::from_str(&extractor_json) {
             Err(err) => {
                 error!("Json provider as bombardier variable for request {} is not valid: {}", request.name, err);
