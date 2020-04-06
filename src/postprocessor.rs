@@ -1,71 +1,61 @@
 use crate::parser;
 
 use std::collections::HashMap;
-use std::error;
 
 use ajson;
 use log::{debug, error};
 use reqwest::{blocking::Response, header::{HeaderMap, CONTENT_TYPE}};
 use serde_json::{Map, Value};
 
-pub fn process(response: Response, request: &parser::Request, env_map: &mut HashMap<String, String>) {
+pub fn process(response: Response, request: &parser::Request, env_map: &mut HashMap<String, String>) -> Result<(), String> {
     let extractor = &request.extractor;
-    if extractor.gjson_path.len() > 0 {
-        match process_json_path(response, &extractor.gjson_path, env_map) {
-            Ok(_) => (),
-            Err(err) => error!("Json path processing failed: Error: {}", err)
-        }
-    } else if extractor.xpath.len() > 0 {
-        process_xpath();
-    }
+    let is_json_response = is_json_response(&response);
+    let is_xml_response = is_xml_response(&response);
+    let body = get_response_as_string(response);
 
-    if extractor.regex.len() > 0 {
-        process_regex();
-    }
+    if is_json_response { //Check if response is json
+        process_json_path(&body, &extractor.gjson_path, env_map)?; 
+    } else if is_xml_response { //Check if response is xml / html
+        process_xpath(&body, &extractor.xpath, env_map)?; 
+    } 
+
+    process_regex(&body, &extractor.regex, env_map)
 }
 
-fn process_json_path(response: Response, jp_map: &Map<String, Value>, env_map: &mut HashMap<String, String>) -> Result<(), Box<dyn error::Error + 'static>> {
+fn process_json_path(body: &str, jp_map: &Map<String, Value>, env_map: &mut HashMap<String, String>) -> Result<(), String> {
     debug!("Executing Gjson path extractor");
-    if is_json_response(&response) {
-        let body = get_response_as_string(response);
-        for k in jp_map.keys() {
-            let param_name = k.to_string();
+    for k in jp_map.keys() {
+        let param_name = k.to_string();
 
-            let json_path = jp_map.get(k).unwrap(); 
-            let json_path_as_str = match json_path.as_str() {
-                Some(s) => s,
-                None => return Err(format!("Gjson path must be a string for key {}", k).into())
-            };
+        let json_path = jp_map.get(k).unwrap(); 
+        let json_path_as_str = json_path.as_str().ok_or(format!("Gjson path must be a string for key {}", k))?;
 
-            debug!("Fetching value for jsonpath: {}", json_path_as_str);
-            let param_value = match ajson::get(&body, json_path_as_str) {
-                Some(v) => v,
-                None => {
-                    return Err(format!("No value found for path {}", json_path_as_str).into())
-                }
-            };
-
-            debug!("Value fetched against json path {} : {:?}", json_path_as_str, param_value);
-            env_map.insert(param_name, String::from(param_value.as_str()));
-        }
-
-        Ok(())
-    } else {
-        Err("Gjson path extractor defined but response is not a JSON".into())
+        debug!("Fetching value for jsonpath: {}", json_path_as_str);
+        let param_value = ajson::get(body, json_path_as_str).ok_or(format!("No value found for path {}", json_path_as_str))?;
+         
+        debug!("Value fetched against json path {} : {:?}", json_path_as_str, param_value);
+        env_map.insert(param_name, String::from(param_value.as_str()));
     }
+
+    Ok(())
 }
 
-fn process_xpath() {
-
+fn process_xpath(body: &str, xp_map: &Map<String, Value>, env_map: &mut HashMap<String, String>) -> Result<(), String> {
+    Ok(())
 }
 
-fn process_regex() {
-
+fn process_regex(body: &str, regex_map: &Map<String, Value>, env_map: &mut HashMap<String, String>) -> Result<(), String> {
+    Ok(())
 }
 
 fn is_json_response(response: &Response) -> bool {
     let content_type = get_response_content_type(&response.headers());
-    content_type.contains("application/json")
+    content_type.contains("json")
+}
+
+fn is_xml_response(response: &Response) -> bool {
+    let content_type = get_response_content_type(&response.headers());
+    content_type.contains("xml") || content_type.contains("html")
 }
 
 fn get_response_as_string(response: Response) -> String {

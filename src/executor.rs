@@ -89,7 +89,11 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                                 break;
                             }
 
-                            postprocessor::process(response, &request, &mut env_map_clone); //process response and update env_map
+                            match postprocessor::process(response, &request, &mut env_map_clone) { //process response and update env_map
+                                Err(err) => error!("Error will post processing response: {}", err),
+                                Ok(()) => ()
+                            }
+
                             task::block_on(async {write_csv_handle.await}) //for for csv writing
                         },
                         Err(err) => {
