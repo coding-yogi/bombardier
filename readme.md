@@ -46,4 +46,4 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 ## Limitations
 * Bombardier currently will on parse requests directly under collection folder and one sub folder. It will ignore requests from folders which or 2 or more levels down in hierarchy
 * Bombardier currently cannot generate different loads for different folders under collection. Whole collection will be executed with same thread count
-* Bombardier cannot parse or execute Postman's javascript written under `test` tag. Due to this limitation you should explicitly tell bombardier if you wish to extract any value from response to be used in following requests. Refer postprocessor guide for the same
+* Bombardier cannot parse or execute Postman's javascript written under `test` tag. Due to this limitation you should explicitly tell bombardier if you wish to extract any value from response to be used in following requests. Refer [postprocessor](https://github.com/coding-yogi/bombardier/blob/develop/docs/postprocessor.md) guide for the same
