@@ -12,7 +12,7 @@ Postman already has something which can do this. It has a test script section wh
   
 Bombardier is written in Rust and cannot interpret the javascript written in postman so it needs some other way to know what is to be extracted.  
 
-Whole idea of building bombardier was to use postman collection as it is. Asking user to make any changes to exported JSON and add additional instructions would defeat the purpose of bombardier. Also with this user would need to keep 2 copies of json, one for postman and one for bombardier.  
+Whole idea of building bombardier was to use postman collection as it is. Asking user to make any changes to exported JSON and add additional instructions would defeat the purpose of bombardier. Also with this approach user would need to keep 2 copies of json, one for postman and one for bombardier.  
 
 There was a solution needed where bombardier can be given instructions w/o editing the exported collection file, hence the below approach
 
