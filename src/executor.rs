@@ -90,7 +90,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                             }
 
                             match postprocessor::process(response, &request, &mut env_map_clone) { //process response and update env_map
-                                Err(err) => error!("Error will post processing response: {}", err),
+                                Err(err) => error!("Error occurred while post processing response for request {} : {}", &request.name, err),
                                 Ok(()) => ()
                             }
 
