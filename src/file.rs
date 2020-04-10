@@ -20,8 +20,8 @@ pub fn create_file(path: &str) -> fs::File {
     let report_file = fs::File::create(path); 
     match report_file {
         Ok(f) => f,
-        Err(s) => {
-            error!("Unable to create report file: {}", s);
+        Err(err) => {
+            error!("Unable to create report file: {}", err);
             process::exit(-1);
         } 
     }

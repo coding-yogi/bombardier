@@ -3,11 +3,10 @@ use crate::parser;
 
 
 use std::time;
-use std::process;
 use std::str::FromStr;
 use std::collections::HashMap;
 
-use log::{debug, error};
+use log::{debug};
 use reqwest::Client as AsynClient;
 use reqwest::{blocking::{Client, Response}, Method};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -56,21 +55,10 @@ pub fn execute(client: &Client, request: parser::Request) -> Result<(Response, u
             debug!("multipart form data found");
             let mut form = reqwest::blocking::multipart::Form::new();
             for data in &details.body.formdata {
-                match data.param_type.as_ref() {
-                    "text" => form = form.text(data.key.clone(), data.value.clone()),
-                    "file" => {
-                        match form.file("file", &data.src) {
-                            Ok(f) => form = f,
-                            Err(err) => {
-                                error!("Error occured while reading file for form param: {}", err);
-                                process::exit(-1);
-                            }
-                        }     
-                    }
-                    _ => {
-                        error!("form data should have either text or file param");
-                        process::exit(-1);
-                    }
+                form = match data.param_type.as_ref() {
+                    "text" => form.text(data.key.clone(), data.value.clone()),
+                    "file" => form.file("file", &data.src)?,
+                    _ => Err("form data should have either text or file param")?
                 }
             }
 

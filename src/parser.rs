@@ -142,11 +142,7 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Vec
     let root: Root = serde_json::from_str(&json).expect("Unable to parse Json");
 
     let mut requests = Vec::<Request>::new();
-    /*bombardier_requests = root.scenarios.iter()
-                            .filter(|s| s.request_details.method != "")
-                            .map(|s| BombardierRequest::new(s))
-                            .collect();*/
-
+  
     for scenario in root.scenarios {
         if scenario.request_details.method != "" {
             let mut request = get_request_from_scenario(&scenario);
@@ -184,7 +180,7 @@ pub fn get_env(env_file: &str) -> HashMap<String, String> {
 }
 
 fn get_extractor_json(mut request: Request) -> Request {
-    let script = get_script(&request);
+    let script = get_test_script(&request);
 
     let pattern = r#"var\s+bombardier\s*=\s*([{]{1}([,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]|".*?")+}{1})"#;
     let re = Regex::new(pattern).unwrap();
@@ -208,7 +204,7 @@ fn get_extractor_json(mut request: Request) -> Request {
     request
 }
 
-fn get_script(request: &Request) -> String {
+fn get_test_script(request: &Request) -> String {
     match request.event.iter().find(|e|  e.listen == "test") {
         None => String::from(""),
         Some(s) => {

@@ -2,7 +2,6 @@ use crate::file;
 
 use std::fmt;
 use std::fs;
-use std::process;
 use std::io::Write;
 use std::collections::HashSet;
 
@@ -53,8 +52,13 @@ pub fn write_stats_to_csv(file: &mut fs::File, stat: &str) {
 }
 
 pub fn display(report_file: String) {
-
-    let (stats, names) = get_stats(&report_file);
+    let (names, stats) = match get_stats(&report_file) {
+        Ok((s,n)) => (s,n),
+        Err(err) => {
+            error!("Error occured while reading stats from file: {}", err);
+            return;
+        }
+    };
 
     let mut table = Table::new();
     table.add_row(row![FY => "Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "90%", "95%", "99%", "Errors", "Error Rate"]);
@@ -101,37 +105,22 @@ pub fn display(report_file: String) {
     print_summary_table(et, total_hits, total_errors);
 }
 
-fn get_stats(report_file: &str) -> (Vec<Stats>, HashSet<String>) {
-
+fn get_stats(report_file: &str) -> Result<(HashSet<String>, Vec<Stats>), csv::Error> {
     let mut stats: Vec<Stats> = Vec::new();
     let mut names: HashSet<String> = HashSet::new();
 
-    let rdr = csv::ReaderBuilder::new().has_headers(true).trim(Trim::All).from_path(report_file);
-    match rdr {
-        Ok(mut r) => {
-            for stat in r.deserialize() {
-                match stat {
-                    Ok(s) => {
-                        let s: Stats = s;
-                        if !names.contains(&s.name) {
-                            names.insert(s.name.clone());
-                        }
-                        stats.push(s);
-                    },
-                    Err(err) => {
-                        error!("Unable to deserialize Stats: {}", err);
-                        process::exit(-1);
-                    }
-                }
-            }   
-        },
-        Err(err) => {
-            error!("Unable to read report file {}", err);
-            process::exit(-1);
+    let mut reader = csv::ReaderBuilder::new().has_headers(true).trim(Trim::All).from_path(report_file)?;
+    let records_iter = reader.deserialize();
+    
+    for stat in records_iter {
+        let s: Stats = stat?;
+        if !names.contains(&s.name) {
+            names.insert(s.name.clone());
         }
-    }
-
-    (stats, names)
+        stats.push(s);
+    }   
+        
+    Ok((names, stats))
 }
 
 fn get_percentile(sorted_vector: &Vec<u128>, p: usize) -> u128 {
