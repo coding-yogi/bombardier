@@ -6,7 +6,7 @@ Bombardier can take your existing postman collection and bombard your server wit
 
 ## Building from source
 Make sure you have cargo and rust installed. Checkout the code and run below command   
-`cargo build -- release`
+`cargo build --release`
   
   
 ## Config json
@@ -37,7 +37,7 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 ## Running Tests
 `./bombardier bombard --config <path of config json>`
 
-## Enabling debug logs
+## Enabling debug mode for more logs
 `export RUST_LOG=debug`
 
 ## Generating reports

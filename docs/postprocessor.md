@@ -41,5 +41,5 @@ To know more about how to define gjson path you can refer [Gjson path](https://g
   
 During execution, bombardier is only going to look for this particular json, it would ignore everything else written in the test script section.  
   
-Bombardier will store the value extracted in the parameter with same name as the key. for eg. value extracted with gjson path `args.foo1` will be stored in a variable `foo1`. This variable then can later be used in following requests using double curly braces like https://some.url/?foo1={{foo1}}  
+Bombardier will store the value extracted in the parameter with same name as the key. for eg. value extracted with gjson path `args.foo1` will be stored in a variable `foo1`. This variable then can later be used in following requests using double curly braces like https://some.url.com?foo1={{foo1}}  
 This is exactly the same way how you would have used it in postman but now instead of using postman's javascript here we are using bombardier variable to do the same
