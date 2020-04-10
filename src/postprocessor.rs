@@ -2,6 +2,7 @@ use crate::parser;
 
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
 
 use ajson;
 use log::{debug, error};
@@ -11,6 +12,59 @@ use serde_json::{Map, Value};
 use sxd_xpath::{evaluate_xpath};
 use sxd_document::parser as xml_parser;
 
+#[derive(Debug)]
+enum ProcessorType {
+    GJsonPath,
+    XmlPath,
+    RegEx
+}
+
+impl fmt::Display for ProcessorType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
+impl ProcessorType {
+    fn extractor(&self, k: &str, v: &Value, body: &str) -> Result<String, Box<dyn Error + 'static>> {
+        let param_value: String;
+        let value = v.as_str().ok_or(format!("Value for extractor {} must be a string", k))?;
+        debug!("Fetching value for {}: {}", self.to_string(), value);
+        
+        use ProcessorType::*;
+        match *self {
+            GJsonPath => {
+                let val_from_jsonpath = ajson::get(body, value).ok_or(format!("No value found for path {}", value))?;
+                let val_as_str = val_from_jsonpath.as_str();
+                param_value = String::from(val_as_str);
+            },
+            XmlPath => {
+                let package = xml_parser::parse(body)?;
+                let document = package.as_document();
+                param_value = evaluate_xpath(&document, value)?.into_string();
+            },
+            RegEx => {
+                let re = Regex::new(&format!(r"{}", value))?;
+                let regex_match = re.find(body).ok_or(format!("No match found for regex {}", re.as_str()))?.as_str();
+                param_value = String::from(regex_match);
+            }
+        }
+
+        debug!("Value fetched against {} {} : {}", self.to_string(), value, param_value);
+        Ok(param_value)
+    }
+}
+
+fn extract(processor_type: ProcessorType, body: &str, map: &Map<String, Value>, env_map: &mut HashMap<String, String>)
+ -> Result<(), Box<dyn Error + 'static>> {
+    for (k, v) in map {
+        let param_value = processor_type.extractor(k,v,body)?;
+        env_map.insert(k.to_string(), param_value);
+    }
+
+    Ok(())
+}
+
 pub fn process(response: Response, request: &parser::Request, env_map: &mut HashMap<String, String>) -> Result<(), Box<dyn Error + 'static>> {
     let extractor = &request.extractor;
     let is_json_response = is_json_response(&response);
@@ -18,66 +72,12 @@ pub fn process(response: Response, request: &parser::Request, env_map: &mut Hash
     let body = get_response_as_string(response);
 
     if is_json_response { //Check if response is json
-        process_json_path(&body, &extractor.gjson_path, env_map)?; 
+        extract(ProcessorType::GJsonPath, &body, &extractor.gjson_path, env_map)?; 
     } else if is_xml_response { //Check if response is xml / html
-        process_xpath(&body, &extractor.xpath, env_map)?; 
+        extract(ProcessorType::XmlPath, &body, &extractor.xpath, env_map)?; 
     } 
 
-    process_regex(&body, &extractor.regex, env_map)
-}
-
-fn process_json_path(body: &str, jp_map: &Map<String, Value>, env_map: &mut HashMap<String, String>) -> Result<(), Box<dyn Error + 'static>> {
-    debug!("Executing Gjson path extractor");
-    for param_name in jp_map.keys() {
-        let jsonpath = jp_map.get(param_name).unwrap()
-                                .as_str()
-                                .ok_or(format!("Gjson path must be a string for key {}", param_name))?;
-
-        debug!("Fetching value for jsonpath: {}", jsonpath);
-        let param_value = ajson::get(body, jsonpath).ok_or(format!("No value found for path {}", jsonpath))?;
-         
-        debug!("Value fetched against json path {} : {:?}", jsonpath, param_value);
-        env_map.insert(param_name.to_string(), String::from(param_value.as_str()));
-    }
-
-    Ok(())
-}
-
-fn process_xpath(body: &str, xp_map: &Map<String, Value>, env_map: &mut HashMap<String, String>) -> Result<(), Box<dyn Error + 'static>>{
-    debug!("Executing Xpath extractor");
-    for param_name in xp_map.keys() {
-        let xpath = xp_map.get(param_name).unwrap()
-                                .as_str()
-                                .ok_or(format!("Xpath must be a string for key {}", param_name))?;
-
-        debug!("Fetching value for xpath: {}", xpath);
-       
-        let package = xml_parser::parse(body)?;
-        let document = package.as_document();
-        let param_value = evaluate_xpath(&document, xpath)?;
-
-        debug!("Value fetched against xpath {} : {:?}", xpath, param_value);
-        env_map.insert(param_name.to_string(), param_value.into_string());
-    }
-    Ok(())
-}
-
-fn process_regex(body: &str, regex_map: &Map<String, Value>, env_map: &mut HashMap<String, String>) -> Result<(), Box<dyn Error + 'static>> {
-    debug!("Executing RegEx extractor");
-    for param_name in regex_map.keys() {
-        let regex = regex_map.get(param_name).unwrap()
-                                .as_str()
-                                .ok_or(format!("Regex must be a string for key {}", param_name))?;
-
-        debug!("Fetching value for regex: {}", regex);
-
-        let re = Regex::new(&format!(r"{}", regex))?;
-        let param_value = re.find(body).ok_or(format!("No match found for regex {}", re.as_str()))?;
-
-        debug!("Value fetched against regex {} : {:?}", regex, param_value);
-        env_map.insert(param_name.to_string(), String::from(param_value.as_str()));
-    }
-    Ok(())
+    extract(ProcessorType::RegEx, &body, &extractor.regex, env_map)
 }
 
 fn is_json_response(response: &Response) -> bool {
