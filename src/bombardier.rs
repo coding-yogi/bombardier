@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use std::ops::Deref;
 
-use log::{debug, error, warn};
+use log::{debug, error, warn, trace};
 use tokio::runtime::Builder;
 
 pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>, vec_data_map: Vec<HashMap<String, String>>) 
@@ -42,6 +42,11 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     let mut handles = vec![];
     let report_arc = Arc::new(Mutex::new(report_file));
 
+    let data_count = vec_data_map.len();
+    let vec_data_map_arc = Arc::new(vec_data_map);
+    let data_counter: usize = 0;
+    let data_counter_arc = Arc::new(Mutex::new(data_counter));
+
     for thread_cnt in 0..no_of_threads {
         let requests_clone = requests.clone();
         let client_clone = client_arc.clone();
@@ -49,6 +54,8 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
         let args_clone = args_arc.clone();
         let mut env_map_clone = env_map.clone();
         let report_clone = report_arc.clone();
+        let vec_data_map_clone = vec_data_map_arc.clone();
+        let data_counter_clone = data_counter_arc.clone();
         
         let mut thread_iteration = 0;
         let rt = Builder::new().threaded_scheduler().enable_all().build()?;
@@ -65,11 +72,19 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
 
                 thread_iteration += 1; //increment iteration
                 let mut vec_stats = vec![];
-            
+
+                //get data set
+                if data_count > 0 {
+                    let data_map = get_data_map(&vec_data_map_clone, &mut *data_counter_clone.lock().unwrap(), data_count);
+                    env_map_clone.extend(data_map.into_iter().map(|(k, v)| (k.clone(), v.clone())));
+                    debug!("data used for {}-{} : {:?}", thread_cnt, thread_iteration, data_map);
+                }
+                
                 //looping thru requests
                 for request in requests_clone.deref() {
                     let processed_request = preprocess(&request, &env_map_clone); //transform request
-                    debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
+                    trace!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
+
                     match http::execute(&client_clone, processed_request) {
                         Ok((response, latency)) => {
                             let new_stats = report::Stats::new(&request.name, response.status().as_u16(), latency);
@@ -130,6 +145,13 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     }
 
     Ok(())
+}
+
+fn get_data_map<'a>(vec_data_map: &'a Vec<HashMap<String, String>>, counter: &mut usize, length: usize) -> &'a HashMap<String, String> {
+    let data_map = &vec_data_map[*counter];
+    *counter += 1;
+    if *counter == length { *counter = 0; }
+    &data_map
 }
 
 fn is_execution_time_over(start_time: time::Instant, duration: &u64) -> bool {
