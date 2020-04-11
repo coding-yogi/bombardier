@@ -13,11 +13,11 @@ use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use std::ops::Deref;
 
-
 use log::{debug, error, warn};
 use tokio::runtime::Builder;
 
-pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
+pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>, vec_data_map: Vec<HashMap<String, String>>) 
+-> Result<(), Box<dyn std::error::Error + 'static>> {
 
     let no_of_threads = args.thread_count;
     let no_of_iterations = args.iterations;
@@ -27,7 +27,7 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     let start_time = time::Instant::now();
     let execution_time = args.execution_time;
 
-    let report_file = report::create_file(&args.report_file);
+    let report_file = report::create_file(&args.report_file)?;
    
     let client = http::get_sync_client(&args);
     let client_arc = Arc::new(client);
@@ -51,7 +51,7 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
         let report_clone = report_arc.clone();
         
         let mut thread_iteration = 0;
-        let rt = Builder::new().threaded_scheduler().enable_all().build().unwrap();
+        let rt = Builder::new().threaded_scheduler().enable_all().build()?;
 
         let handle = thread::spawn(move || {
             loop {
@@ -76,15 +76,13 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                             let new_stats_clone = new_stats.clone();
                             let report_clone2 = report_clone.clone();
 
-                            //Write to CSV
-                            let write_csv_handle = task::spawn(async move {
+                            let write_csv_handle = task::spawn(async move {  //Write to CSV
                                 report::write_stats_to_csv(&mut report_clone2.as_ref().lock().unwrap(), &format!("{}", &new_stats_clone));
                             });
 
                             vec_stats.push(new_stats);
 
-                            //check status
-                            if !args_clone.continue_on_error && is_failed_request(response.status().as_u16()) {
+                            if !args_clone.continue_on_error && is_failed_request(response.status().as_u16()) { //check status
                                 warn!("Request {} failed. Skipping rest of the iteration", &request.name);
                                 task::block_on(async {write_csv_handle.await}); //wait for csv writing
                                 break;
@@ -95,7 +93,7 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                                 Ok(()) => ()
                             }
 
-                            task::block_on(async {write_csv_handle.await}) //for for csv writing
+                            task::block_on(async {write_csv_handle.await}) //wait for csv writing
                         },
                         Err(err) => {
                             error!("Error occured while executing request {}, : {}", &request.name, err);
@@ -130,6 +128,8 @@ pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
     for handle in handles {
         handle.join().unwrap();
     }
+
+    Ok(())
 }
 
 fn is_execution_time_over(start_time: time::Instant, duration: &u64) -> bool {

@@ -21,6 +21,9 @@ pub struct Args {
     #[serde(default = "default_report_file")]
     pub report_file: String,
 
+    #[serde(default)]
+    pub data_file: String,
+
     #[serde(deserialize_with = "check_non_zero")]
     pub thread_count: u64,
 
@@ -95,7 +98,7 @@ pub fn get_args() -> Result<Args, Box<dyn std::error::Error + Send + Sync>> {
     let config_file_path = get_value_as_str(subcommand_args, config_arg_name);
     info!("Parsing config file {}", config_file_path);
     
-    let content = file::get_content(&config_file_path);
+    let content = file::get_content(&config_file_path)?;
     let mut args: Args = match serde_json::from_str(&content) {
         Ok(a) => a,
         Err(err) => {

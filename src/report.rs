@@ -6,8 +6,7 @@ use std::io::Write;
 use std::collections::HashSet;
 
 use chrono::{Utc, DateTime, Duration};
-use csv::Trim;
-use log::{error, warn};
+use log::warn;
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
@@ -38,10 +37,10 @@ impl fmt::Display for Stats {
     }
 }
 
-pub fn create_file(path: &str) -> fs::File {
-    let mut report_file = file::create_file(path);
+pub fn create_file(path: &str) -> Result<fs::File, std::io::Error> {
+    let mut report_file = file::create_file(path)?;
     write_stats_to_csv(&mut report_file, &format!("timestamp, status, latency, name\n"));
-    report_file
+    Ok(report_file)
 }
 
 pub fn write_stats_to_csv(file: &mut fs::File, stat: &str) {
@@ -51,14 +50,8 @@ pub fn write_stats_to_csv(file: &mut fs::File, stat: &str) {
     }
 }
 
-pub fn display(report_file: String) {
-    let (names, stats) = match get_stats(&report_file) {
-        Ok((s,n)) => (s,n),
-        Err(err) => {
-            error!("Error occured while reading stats from file: {}", err);
-            return;
-        }
-    };
+pub fn display(report_file: String) -> Result<(), Box<dyn std::error::Error>> {
+    let (names, stats) = get_stats(&report_file)?;
 
     let mut table = Table::new();
     table.add_row(row![FY => "Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "90%", "95%", "99%", "Errors", "Error Rate"]);
@@ -67,7 +60,7 @@ pub fn display(report_file: String) {
     let mut total_errors = 0.0;
 
     let starttime = DateTime::parse_from_rfc3339(&stats[0].timestamp).unwrap() - Duration::milliseconds(stats[0].latency as i64);
-    let endtime = DateTime::parse_from_rfc3339(&stats[stats.len()-1].timestamp).unwrap();
+    let endtime = DateTime::parse_from_rfc3339(&stats[stats.len()-1].timestamp)?;
     let et = endtime.signed_duration_since(starttime).num_seconds();
 
     for name in names {
@@ -103,13 +96,15 @@ pub fn display(report_file: String) {
 
     table.printstd();
     print_summary_table(et, total_hits, total_errors);
+
+    Ok(())
 }
 
 fn get_stats(report_file: &str) -> Result<(HashSet<String>, Vec<Stats>), csv::Error> {
     let mut stats: Vec<Stats> = Vec::new();
     let mut names: HashSet<String> = HashSet::new();
 
-    let mut reader = csv::ReaderBuilder::new().has_headers(true).trim(Trim::All).from_path(report_file)?;
+    let mut reader = csv::ReaderBuilder::new().has_headers(true).trim(csv::Trim::All).from_path(report_file)?;
     let records_iter = reader.deserialize();
     
     for stat in records_iter {

@@ -137,9 +137,9 @@ pub struct Extractor {
     pub regex: Map<String, Value>,
 }
 
-pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Vec<Request> {
+pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<Request>, std::io::Error> {
     let json = file::find_and_replace(content, &env_map);
-    let root: Root = serde_json::from_str(&json).expect("Unable to parse Json");
+    let root: Root = serde_json::from_str(&json)?;
 
     let mut requests = Vec::<Request>::new();
   
@@ -156,7 +156,7 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Vec
         }
     } 
 
-    requests
+    Ok(requests)
 }
 
 fn get_request_from_scenario(scenario: &Scenario) -> Request {
@@ -168,15 +168,15 @@ fn get_request_from_scenario(scenario: &Scenario) -> Request {
     }
 }
 
-pub fn get_env_map(env_file: &str) -> HashMap<String, String> {
-    let config_content = file::get_content(env_file);
-    let env_json: Env = serde_json::from_str(&config_content).expect("Unable to parse Json");
+pub fn get_env_map(env_file: &str) -> Result<HashMap<String, String>, std::io::Error> {
+    let config_content = file::get_content(env_file)?;
+    let env_json: Env = serde_json::from_str(&config_content)?;
     let mut env_map: HashMap<String, String> = HashMap::new();
     for kv in env_json.key_values {
         env_map.insert(kv.key, kv.value);
     }
 
-    env_map
+    Ok(env_map)
 }
 
 fn get_extractor_json(mut request: Request) -> Request {
@@ -215,4 +215,34 @@ fn get_test_script(request: &Request) -> String {
             .collect()
         }
     }
+}
+
+pub fn get_vec_data_map(data_file: &str) -> Result<Vec<HashMap<String, String>>, csv::Error> {
+    let mut vec_data_map: Vec<HashMap<String, String>> = Vec::new();
+
+    if data_file != "" {
+        let mut reader = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .trim(csv::Trim::All)
+            .from_path(data_file)?;
+
+        let mut records_iterator = reader.records();
+
+        let headers: Vec<String> = records_iterator
+            .next()
+            .unwrap()?
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+
+        vec_data_map = records_iterator.map(|record| {
+            headers.iter()
+                .zip(record.unwrap().iter())
+                .map(|(k,v)| (k.clone(), v.to_string()))
+                .collect()
+        }).collect();
+    }
+    
+    Ok(vec_data_map)
 }
