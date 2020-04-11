@@ -168,7 +168,7 @@ fn get_request_from_scenario(scenario: &Scenario) -> Request {
     }
 }
 
-pub fn get_env(env_file: &str) -> HashMap<String, String> {
+pub fn get_env_map(env_file: &str) -> HashMap<String, String> {
     let config_content = file::get_content(env_file);
     let env_json: Env = serde_json::from_str(&config_content).expect("Unable to parse Json");
     let mut env_map: HashMap<String, String> = HashMap::new();

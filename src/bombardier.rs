@@ -8,15 +8,16 @@ use crate::postprocessor;
 
 use async_std::task;
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::{thread, time};
 use std::ops::Deref;
-use std::collections::HashMap;
+
 
 use log::{debug, error, warn};
 use tokio::runtime::Builder;
 
-pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
+pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>) {
 
     let no_of_threads = args.thread_count;
     let no_of_iterations = args.iterations;
@@ -70,8 +71,8 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                     let processed_request = preprocess(&request, &env_map_clone); //transform request
                     debug!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
                     match http::execute(&client_clone, processed_request) {
-                        Ok((response, lat)) => {
-                            let new_stats = report::Stats::new(&request.name, response.status().as_u16(), lat);
+                        Ok((response, latency)) => {
+                            let new_stats = report::Stats::new(&request.name, response.status().as_u16(), latency);
                             let new_stats_clone = new_stats.clone();
                             let report_clone2 = report_clone.clone();
 
@@ -85,7 +86,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                             //check status
                             if !args_clone.continue_on_error && is_failed_request(response.status().as_u16()) {
                                 warn!("Request {} failed. Skipping rest of the iteration", &request.name);
-                                task::block_on(async {write_csv_handle.await}); //for for csv writing
+                                task::block_on(async {write_csv_handle.await}); //wait for csv writing
                                 break;
                             }
 
@@ -99,7 +100,7 @@ pub fn execute(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<
                         Err(err) => {
                             error!("Error occured while executing request {}, : {}", &request.name, err);
                             if !args_clone.continue_on_error {
-                                warn!("Skipping rest of the iteration");
+                                warn!("Skipping rest of the iteration as continue on error is set to false");
                                 break;
                             }
                         }
