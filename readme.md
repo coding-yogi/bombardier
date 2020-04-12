@@ -17,6 +17,7 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 {
     "environment_file": "./examples/environment.json",
     "collection_file": "./examples/collection.json",
+    "data_file": "./examples/data.csv",
     "thread_count": 1,
     "iterations": 1,
     "thread_delay": 1,
