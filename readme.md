@@ -32,6 +32,8 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 }
 ```
 
+For more details regarding configuration json, please check [configurations](https://github.com/coding-yogi/bombardier/blob/develop/docs/configurations.md) doc.  
+
 ## Running Tests
 `./bombardier bombard --config <path of config json>`
 
@@ -49,13 +51,13 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 | PostWithFormUrlEncoded          | 1000       | 5.7471266 | 235 | 281 | 882  | 296 | 304 | 783 | 0      | 0          |
 | GetWithQueryParams              | 1000       | 5.7471266 | 234 | 284 | 1307 | 296 | 303 | 808 | 0      | 0          |
 | PostWithNoBody                  | 1000       | 5.7471266 | 234 | 279 | 2168 | 296 | 303 | 327 | 0      | 0          |
-
-
-
-
+  
+  
 | Total Execution Time (in secs) | Total Hits | Hits/s    | Total Errors | Error Rate |
 |--------------------------------|------------|-----------|--------------|------------|
 | 174                            | 6000       | 34.482758 | 0            | 0          |
+  
+
 ## Limitations
 * Bombardier currently will only parse the requests which are directly under collection folder or it's sub-folder. It will ignore requests from folders which are 2 or more levels down in hierarchy.
   In below example bombardier will ignore all requests under folder 2
