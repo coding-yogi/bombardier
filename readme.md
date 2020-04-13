@@ -1,13 +1,10 @@
-# bombardier
-Rust based HTTP load testing tool using postman collection
-
-
-Bombardier can take your existing postman collection and bombard your server with those requests under specified load
-
+# Bombardier
+Rust based HTTP load testing tool using postman collection  
+Bombardier can take your existing postman collection and bombard your server with those requests under specified load  
+  
 ## Building from source
 Make sure you have cargo and rust installed. Checkout the code and run below command   
-`cargo build --release`
-  
+`cargo build --release`  
   
 ## Config json
 You need to create a json file which can tell Bombardier about the load configuration.  
