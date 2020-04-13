@@ -16,27 +16,27 @@ use std::ops::Deref;
 use log::{debug, error, warn, trace};
 use tokio::runtime::Builder;
 
-pub fn bombard(args: cmd::Args, env_map: HashMap<String, String>, requests: Vec<parser::Request>, vec_data_map: Vec<HashMap<String, String>>) 
+pub fn bombard(config: cmd::ExecConfig, env_map: HashMap<String, String>, requests: Vec<parser::Request>, vec_data_map: Vec<HashMap<String, String>>) 
 -> Result<(), Box<dyn std::error::Error + 'static>> {
 
-    let no_of_threads = args.thread_count;
-    let no_of_iterations = args.iterations;
+    let no_of_threads = config.thread_count;
+    let no_of_iterations = config.iterations;
     let iteration_based_execution = no_of_iterations > 0;
-    let thread_delay = args.rampup_time * 1000 / no_of_threads;
+    let thread_delay = config.rampup_time * 1000 / no_of_threads;
 
     let start_time = time::Instant::now();
-    let execution_time = args.execution_time;
+    let execution_time = config.execution_time;
 
-    let report_file = report::create_file(&args.report_file)?;
+    let report_file = report::create_file(&config.report_file)?;
    
-    let client = http::get_sync_client(&args);
+    let client = http::get_sync_client(&config);
     let client_arc = Arc::new(client);
 
     let influx_client = http::get_async_client();
-    let influx_req = influxdb::build_request(&influx_client, &args.influxdb);
+    let influx_req = influxdb::build_request(&influx_client, &config.influxdb);
     let influx_arc = Arc::new(influx_req);
 
-    let args_arc = Arc::new(args);
+    let args_arc = Arc::new(config);
     let requests = Arc::new(requests);
 
     let mut handles = vec![];

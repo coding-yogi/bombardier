@@ -1,13 +1,11 @@
 use crate::file;
 
-use std::process;
-
 use clap::{Arg, App, ArgMatches, SubCommand};
 use serde::{Serialize, Deserialize, Deserializer, de::Error};
-use log::{error, info, warn};
+use log::{info, warn};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Args {
+pub struct ExecConfig {
 
     #[serde(default)]
     pub command: String,
@@ -57,27 +55,18 @@ pub struct InfluxDB {
     pub dbname: String,
 }
 
+const CONFIG_ARG_NAME: &str = "config json file";
+const JSON_EXT: &str = ".json";
+const DEFAULT_REPORT_FILE: &str = "report.csv";
+
 fn default_report_file() -> String {
-    String::from("report.csv")
+    String::from(DEFAULT_REPORT_FILE)
 }
 
-pub fn get_args() -> Result<Args, Box<dyn std::error::Error + Send + Sync>> {
-    let config_arg_name = "config json file";
-    let config_arg = Arg::with_name(config_arg_name)
-                        .short("c")
-                        .long("config")
-                        .takes_value(true)
-                        .required(true)
-                        .validator(|s: String| {
-                            match s.ends_with(".json") {
-                                true => Ok(()),
-                                false => Err(String::from("File should be a .json file"))
-                            }
-                        })
-                        .display_order(0)
-                        .help("Execution configuration json file");
+fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
+    let config_arg = create_config_arg(CONFIG_ARG_NAME);
 
-    let matches = App::new("Bombardier")
+    App::new("Bombardier")
         .version("0.1.0")
         .author("Coding Yogi <aniket.g2185@gmail.com>")
         .subcommand(SubCommand::with_name("bombard")
@@ -86,38 +75,55 @@ pub fn get_args() -> Result<Args, Box<dyn std::error::Error + Send + Sync>> {
         .subcommand(SubCommand::with_name("report")
                 .about("Generates the report from report file")
                 .arg(&config_arg))
-        .get_matches();
+}
 
-    let (subcommand, subcommand_args) = matches.subcommand();
+fn create_config_arg<'a>(arg_name: &'a str) -> Arg<'a, 'a> {
+    Arg::with_name(arg_name)
+        .short("c")
+        .long("config")
+        .takes_value(true)
+        .required(true)
+        .validator(|s: String| {
+            match s.ends_with(JSON_EXT) {
+                true => Ok(()),
+                false => Err(String::from("File should be a .json file"))
+            }
+        })
+        .display_order(0)
+        .help("Execution configuration json file")
+}
 
-    if subcommand == "" {
-        error!("No command found. Command should either be 'bombard' or 'report'");
-        process::exit(-1);
-    }
-
-    let config_file_path = get_value_as_str(subcommand_args, config_arg_name);
+fn get_config_from_file(config_file_path: String) -> Result<ExecConfig, Box<dyn std::error::Error + Send + Sync>> {
     info!("Parsing config file {}", config_file_path);
     
     let content = file::get_content(&config_file_path)?;
-    let mut args: Args = match serde_json::from_str(&content) {
-        Ok(a) => a,
-        Err(err) => {
-            error!("Error while deserializing config json: {}", err);
-            process::exit(-1);
-        }
-    };
-    args.command = subcommand.to_string();
+    let config: ExecConfig = serde_json::from_str(&content)?;
 
-    if args.execution_time == 0 && args.iterations == 0 {
-        error!("Both execution time and iterations cannot be 0");
-        process::exit(-1);
+    if config.execution_time == 0 && config.iterations == 0 {
+        return Err("Both execution time and iterations cannot be 0".into());
     }
 
-    if args.execution_time > 0 && args.iterations > 0 {
+    if config.execution_time > 0 && config.iterations > 0 {
         warn!("Both execution time and iterations values provided. Execution time will be ignored");
     }
 
-    Ok(args)
+    Ok(config)
+}
+
+
+pub fn get_config() -> Result<ExecConfig, Box<dyn std::error::Error + Send + Sync>> {
+    let matches = create_cmd_app().get_matches();
+    let (subcommand, subcommand_args) = matches.subcommand();
+
+    if subcommand == "" {
+        return Err("No subcommand found. Should either be 'bombard' or 'report'".into())
+    }
+
+    let config_file_path = get_value_as_str(subcommand_args, CONFIG_ARG_NAME); 
+    let mut config = get_config_from_file(config_file_path)?;
+
+    config.command = subcommand.to_string(); 
+    Ok(config)
 }
 
 fn check_non_zero <'de, D>(deserializer: D) -> Result<u64, D::Error> 
@@ -135,7 +141,7 @@ fn check_json_file <'de, D>(deserializer: D) -> Result<String, D::Error>
 where D: Deserializer<'de> {
     
     let val = String::deserialize(deserializer)?;
-    if !val.ends_with(".json")  {
+    if !val.ends_with(JSON_EXT)  {
         return Err(Error::custom("File should be a .json file"))
     }
 

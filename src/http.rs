@@ -1,7 +1,6 @@
 use crate::cmd;
 use crate::parser;
 
-
 use std::time;
 use std::str::FromStr;
 use std::collections::HashMap;
@@ -11,10 +10,10 @@ use reqwest::Client as AsynClient;
 use reqwest::{blocking::{Client, Response}, Method};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
-pub fn get_sync_client(args: &cmd::Args)  -> Client {
+pub fn get_sync_client(config: &cmd::ExecConfig)  -> Client {
     let mut client_builder = Client::builder().user_agent("bombardier");
 
-    if args.handle_cookies {
+    if config.handle_cookies {
         client_builder = client_builder.cookie_store(true);
     }
 
