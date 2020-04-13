@@ -32,7 +32,7 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 }
 ```
 
-For more details regarding configuration json, please check [configurations](https://github.com/coding-yogi/bombardier/blob/develop/docs/configurations.md) doc.  
+For more details regarding configuration json, please check [configurations](https://github.com/coding-yogi/bombardier/blob/develop/docs/configuration.md) doc.  
 
 ## Running Tests
 `./bombardier bombard --config <path of config json>`
