@@ -5,12 +5,12 @@ use std::error::Error;
 use std::fmt;
 
 use ajson;
-use log::{debug, error};
+use libxml::parser::Parser as xml_parser;
+use libxml::xpath::Context;
+use log::{debug, error, warn};
 use regex::Regex;
 use reqwest::{blocking::Response, header::{HeaderMap, CONTENT_TYPE}};
 use serde_json::{Map, Value};
-use sxd_xpath::{evaluate_xpath};
-use sxd_document::parser as xml_parser;
 
 #[derive(Debug)]
 enum ProcessorType {
@@ -32,27 +32,50 @@ impl ProcessorType {
         debug!("Fetching value for {}: {}", self.to_string(), value);
         
         use ProcessorType::*;
-        match *self {
-            GJsonPath => {
-                let val_from_jsonpath = ajson::get(body, value).ok_or(format!("No value found for path {}", value))?;
-                let val_as_str = val_from_jsonpath.as_str();
-                param_value = String::from(val_as_str);
-            },
-            XmlPath => {
-                let package = xml_parser::parse(body)?;
-                let document = package.as_document();
-                param_value = evaluate_xpath(&document, value)?.into_string();
-            },
-            RegEx => {
-                let re = Regex::new(&format!(r"{}", value))?;
-                let regex_match = re.find(body).ok_or(format!("No match found for regex {}", re.as_str()))?.as_str();
-                param_value = String::from(regex_match);
-            }
-        }
+        param_value = match *self {
+            GJsonPath => execute_gjson_path(value, body)?,
+            XmlPath =>  execute_xpath(value, body)?,
+            RegEx => execute_regex(value, body)?
+        };
 
         debug!("Value fetched against {} {} : {}", self.to_string(), value, param_value);
         Ok(param_value)
     }
+}
+
+fn execute_regex(pattern: &str, body: &str) -> Result<String, Box<dyn Error + 'static>> {
+    let re = Regex::new(&format!(r"{}", pattern))?;
+    let regex_match = re.find(body).ok_or(format!("No match found for regex {}", re.as_str()))?.as_str();
+    Ok(String::from(regex_match))
+}
+
+fn execute_gjson_path(jsonpath: &str, body: &str) -> Result<String, Box<dyn Error + 'static>> {
+    let val_from_jsonpath = ajson::get(body, jsonpath).ok_or(format!("No value found for path {}", jsonpath))?;
+    let val_as_str = val_from_jsonpath.as_str();
+    Ok(String::from(val_as_str))
+}
+
+fn execute_xpath(xpath: &str, body: &str) -> Result<String, Box<dyn Error + 'static>> {
+    let parser: xml_parser = match body.contains("<html>.*</html>") {
+        true => xml_parser::default_html(),
+        _ => xml_parser::default()
+    };
+    
+    let doc = match parser.parse_string(body) {
+        Ok(doc) => doc,
+        Err(err) => return Err(format!("Unable to parse body for xpath {}: {}", xpath, err).into())
+    };
+
+    let context = Context::new(&doc).unwrap();
+    let nodes = context.evaluate(xpath).unwrap().get_nodes_as_vec();
+
+    if nodes.len() == 0 {
+        return Err(format!("No results found for xpath {}", xpath).into());
+    } else if nodes.len() > 1 {
+        warn!("Xpath {} matches multiple nodes. only first node would be considered", xpath)
+    }
+
+    Ok(nodes[0].get_content())
 }
 
 fn extract(processor_type: ProcessorType, body: &str, map: &Map<String, Value>, env_map: &mut HashMap<String, String>)
