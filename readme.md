@@ -32,7 +32,7 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 }
 ```
 
-For more details regarding configuration json, please check [configurations](https://github.com/coding-yogi/bombardier/blob/develop/docs/configuration.md) doc.  
+For more details regarding configuration json, please check [configurations](docs/configuration.md) doc.  
 
 ## Running Tests
 `./bombardier bombard --config <path of config json>`
@@ -59,7 +59,7 @@ For more details regarding configuration json, please check [configurations](htt
   
 
 ## Benchmarks
-I would like this tool to be benchmarked with other tools to see if it needs more improvement. You can find the benchmarks [here](https://github.com/coding-yogi/bombardier/blob/develop/docs/benchmarks.md)
+I would like this tool to be benchmarked with other tools to see if it needs more improvement. You can find the benchmarks [here](docs/benchmarks.md)
 
 
 ## Limitations
@@ -76,4 +76,4 @@ collection
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|__ request5  
             
 * Bombardier currently cannot generate different loads for different folders under collection. Whole collection will be executed with same thread count
-* Bombardier cannot parse or execute Postman's javascript written under `test` tag. Due to this limitation you should explicitly tell bombardier if you wish to extract any value from response to be used in following requests. Refer [postprocessor](https://github.com/coding-yogi/bombardier/blob/develop/docs/postprocessor.md) guide for the same
+* Bombardier cannot parse or execute Postman's javascript written under `test` tag. Due to this limitation you should explicitly tell bombardier if you wish to extract any value from response to be used in following requests. Refer [postprocessor](docs/postprocessor.md) guide for the same
