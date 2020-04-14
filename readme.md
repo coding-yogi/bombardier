@@ -1,4 +1,4 @@
-# Bombardier
+# Bombardier ![bombardier](https://github.com/coding-yogi/bombardier/workflows/bombardier/badge.svg)
 Rust based HTTP load testing tool using postman collection  
 Bombardier can take your existing postman collection and bombard your server with those requests under specified load  
   
