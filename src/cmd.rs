@@ -23,6 +23,7 @@ pub struct ExecConfig {
     pub data_file: String,
 
     #[serde(deserialize_with = "check_non_zero")]
+    #[serde(default = "default_to_one")]
     pub thread_count: u64,
 
     #[serde(default)]
@@ -31,7 +32,7 @@ pub struct ExecConfig {
     #[serde(default)]
     pub execution_time: u64,
 
-    #[serde(default)]
+    #[serde(default = "default_to_one")]
     pub thread_delay: u64,
 
     #[serde(deserialize_with = "check_non_zero")]
@@ -61,6 +62,10 @@ const DEFAULT_REPORT_FILE: &str = "report.csv";
 
 fn default_report_file() -> String {
     String::from(DEFAULT_REPORT_FILE)
+}
+
+fn default_to_one() -> u64 {
+    1
 }
 
 fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
