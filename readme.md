@@ -58,6 +58,10 @@ For more details regarding configuration json, please check [configurations](htt
 | 174                            | 6000       | 34.482758 | 0            | 0          |
   
 
+## Benchmarks
+I would like this tool to be benchmarked with other tools to see if it needs more improvement. You can find the benchmarks [here](https://github.com/coding-yogi/bombardier/blob/develop/docs/benchmarks.md)
+
+
 ## Limitations
 * Bombardier currently will only parse the requests which are directly under collection folder or it's sub-folder. It will ignore requests from folders which are 2 or more levels down in hierarchy.
   In below example bombardier will ignore all requests under folder 2
