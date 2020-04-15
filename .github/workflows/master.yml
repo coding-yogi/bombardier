@@ -16,12 +16,7 @@ jobs:
           - os: ubuntu-latest
             artifact_name: bombardier
             asset_name: bombardier-linux-amd64
-          - os: windows-latest
-            artifact_name: bombardier.exe
-            asset_name: bombardier-windows-amd64
-          - os: macos-latest
-            artifact_name: bombardier
-            asset_name: bombardier-macos-amd64
+       
     steps:
     - uses: actions/checkout@v2
     - name: Build
