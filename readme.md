@@ -69,7 +69,6 @@ I would like this tool to be benchmarked with other tools to see if it needs mor
 ```
 ├── collection
     ├── request1
-    │   ├── **/*.css
     └── folder1
         ├── request2
         ├── request3
