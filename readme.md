@@ -73,7 +73,7 @@ I would like this tool to be benchmarked with other tools to see if it needs mor
         ├── request2
         ├── request3
         └── folder2
-            ├── reques4
+            ├── request4
             └── reques5
 ```  
             
