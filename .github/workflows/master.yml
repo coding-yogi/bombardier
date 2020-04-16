@@ -16,6 +16,9 @@ jobs:
           - os: ubuntu-latest
             artifact_name: bombardier
             asset_name: bombardier-linux-amd64
+          - os: windows-latest
+            artifact_name: bombardier.exe
+            asset_name: bombardier-win-amd64
        
     steps:
     - uses: actions/checkout@v2
@@ -24,6 +27,7 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Upload binaries to release
+      if: github.event_name == 'push'
       uses: svenstaro/upload-release-action@v1-release
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
