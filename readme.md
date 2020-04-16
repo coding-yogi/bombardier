@@ -66,14 +66,17 @@ I would like this tool to be benchmarked with other tools to see if it needs mor
 * Bombardier currently will only parse the requests which are directly under collection folder or it's sub-folder. It will ignore requests from folders which are 2 or more levels down in hierarchy.
   In below example bombardier will ignore all requests under folder 2
 
-collection  
-&nbsp; &nbsp; &nbsp;|__ request1  
-&nbsp; &nbsp; &nbsp;|__ folder1  
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|__ request2  
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|__ request3  
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|__ folder2  
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|__ request4  
-&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;|__ request5  
+```
+├── collection
+    ├── request1
+    │   ├── **/*.css
+    └── folder1
+        ├── request2
+        ├── request3
+        └── folder2
+            ├── reques4
+            └── reques5
+```  
             
 * Bombardier currently cannot generate different loads for different folders under collection. Whole collection will be executed with same thread count
 * Bombardier cannot parse or execute Postman's javascript written under `test` tag. Due to this limitation you should explicitly tell bombardier if you wish to extract any value from response to be used in following requests. Refer [postprocessor](docs/postprocessor.md) guide for the same
