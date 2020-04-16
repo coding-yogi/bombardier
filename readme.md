@@ -74,7 +74,7 @@ I would like this tool to be benchmarked with other tools to see if it needs mor
         ├── request3
         └── folder2
             ├── request4
-            └── reques5
+            └── request5
 ```  
             
 * Bombardier currently cannot generate different loads for different folders under collection. Whole collection will be executed with same thread count
