@@ -10,6 +10,9 @@ mod postprocessor;
 use log::{error};
 use figlet_rs::FIGfont;
 
+#[macro_use]
+extern crate colour;
+
 fn main()  {
     pretty_env_logger::init_timed();
 
@@ -64,13 +67,13 @@ fn main()  {
                 Ok(v) => v
             };
            
-            println!("Bombarding !!!");
+            yellow_ln!("Bombarding !!!");
             match bombardier::bombard(config, env_map, requests, vec_data_map) {
                 Err(err) => error!("Bombarding failed : {}", err),
                 Ok(()) => ()
             }   
 
-            println!("Execution Complete. Run report command to get details.");
+            green_ln!("Execution Complete. Run report command to get details.");
         },
         "report" => {
             println!("Generating report");
