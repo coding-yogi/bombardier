@@ -2,7 +2,7 @@ use crate::file;
 use std::process;
 use std::collections::HashMap;
 
-use log::{error};
+use log::{error, warn};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 use serde_json::{Map, Value};
@@ -169,11 +169,19 @@ fn get_request_from_scenario(scenario: &Scenario) -> Request {
 }
 
 pub fn get_env_map(env_file: &str) -> Result<HashMap<String, String>, std::io::Error> {
-    let config_content = file::get_content(env_file)?;
-    let env_json: Env = serde_json::from_str(&config_content)?;
+
     let mut env_map: HashMap<String, String> = HashMap::new();
-    for kv in env_json.key_values {
-        env_map.insert(kv.key, kv.value);
+
+    if env_file == "" {
+        warn!("No environment json file specified in config");
+    } else {
+        let config_content = file::get_content(env_file)?;
+        let env_json: Env = serde_json::from_str(&config_content)?;
+        
+        for kv in env_json.key_values {
+            env_map.insert(kv.key, kv.value);
+        }
+
     }
 
     Ok(env_map)

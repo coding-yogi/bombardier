@@ -4,7 +4,7 @@ Below is the explanation of every config parameter mentioned in the config json
   
 |Parameter name    |Description                                                                         |Optional?  |Default    |
 |------------------|------------------------------------------------------------------------------------|-----------|-----------|
-|environment_file  |Path of the environment json exported from postman                                 |No         |           |
+|environment_file  |Path of the environment json exported from postman                                  |Yes        |           |
 |collection_file   |Path of the collection json exported from postman                                   |No         |           |
 |data_file         |Path of the data csv file to be used during execution                               |Yes        |           |
 |thread_count      |No. of concurrent threads/users                                                     |Yes        |1          |
