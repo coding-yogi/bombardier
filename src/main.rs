@@ -7,7 +7,8 @@ mod report;
 mod influxdb;
 mod postprocessor;
 
-use log::{info, error};
+use log::{error};
+use figlet_rs::FIGfont;
 
 fn main()  {
     pretty_env_logger::init_timed();
@@ -22,7 +23,12 @@ fn main()  {
 
     match config.command.as_str() {
         "bombard" => {
-            info!("Reading collections file");
+
+            let standard_font = FIGfont::standand().unwrap();
+            let figure = standard_font.convert("Bombardier");
+            println!("{}", figure.unwrap());
+            
+            println!("Reading collection file.");
             let contents = match file::get_content(&config.collection_file) {
                 Err(err) => {
                     error!("Error occured while reading collection file {} : {}", &config.collection_file, err);
@@ -31,7 +37,7 @@ fn main()  {
                 Ok(c) => c
             };
             
-            info!("Reading environments file");
+            println!("Reading environments file..");
             let env_map = match parser::get_env_map(&config.environment_file) {
                 Err(err) => {
                     error!("Error occured while reading environments file {} : {}", &config.environment_file, err);
@@ -40,7 +46,7 @@ fn main()  {
                 Ok(map) => map
             }; 
 
-            info!("Reading data file");
+            println!("Reading data file...");
             let vec_data_map = match parser::get_vec_data_map(&config.data_file) {
                 Err(err) => {
                     error!("Error occured while reading data file {} : {}", &config.data_file, err);
@@ -49,7 +55,7 @@ fn main()  {
                 Ok(vec) => vec
             };
 
-            info!("Generating bombardier requests");
+            println!("Generating bombardier requests....");
             let requests = match parser::parse_requests(contents, &env_map) {
                 Err(err) => {
                     error!("Error occured while parsing requests : {}", err);
@@ -58,16 +64,16 @@ fn main()  {
                 Ok(v) => v
             };
            
-            info!("Bombarding !!!");
+            println!("Bombarding !!!");
             match bombardier::bombard(config, env_map, requests, vec_data_map) {
                 Err(err) => error!("Bombarding failed : {}", err),
                 Ok(()) => ()
             }   
 
-            info!("Execution Complete. Run report command to get details");
+            println!("Execution Complete. Run report command to get details.");
         },
         "report" => {
-            info!("Generating report");
+            println!("Generating report");
             match report::display(config.report_file) {
                 Err(err) => {
                     error!("Error occured while generating report : {}", err);
