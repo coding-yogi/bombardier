@@ -15,4 +15,4 @@ Below is the explanation of every config parameter mentioned in the config json
 |report_file       |Path to CSV report file                                                             |Yes        |report.csv |
 |continue_on_error |Whether to continue with iteration when one of the requests fail                    |Yes        |false      |
 |handle_cookies    |Whether bombardier will handle cookies. Mainly used in UI flow                      |Yes        |false      |
-|influxdb          |If stats need to be pushed to influxDb for real time monitoring                     |Yes        |           |
+|influxdb          |If stats need to be pushed to influxDb for real time monitoring                     |Yes        |false      |

@@ -45,6 +45,9 @@ pub struct ExecConfig {
     pub continue_on_error: bool,
 
     #[serde(default)]
+    pub log_to_file: bool,
+
+    #[serde(default)]
     pub influxdb: InfluxDB
 }
 

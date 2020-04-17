@@ -1,17 +1,19 @@
-mod parser;
-mod file;
-mod cmd;
 mod bombardier;
+mod cmd;
+mod file;
 mod http;
-mod report;
 mod influxdb;
+mod logger;
+mod parser;
 mod postprocessor;
+mod report;
 
 use log::{info, error};
 
 fn main()  {
-    pretty_env_logger::init_timed();
 
+    logger::initiate(true);
+    
     let config = match cmd::get_config() {
         Err(err) => {
             error!("Error occured while parsing command line args : {}", err);
