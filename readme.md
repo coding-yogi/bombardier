@@ -38,7 +38,8 @@ For more details regarding configuration json, please check [configurations](doc
 `./bombardier bombard --config <path of config json>`
 
 ## Enabling debug mode for more logs
-`export RUST_LOG=debug`
+`export RUST_LOG=debug`  
+Debug logs would be written only to log file. It is not advisable to enable debug logging during actual execution of tests  
 
 ## Generating reports
 `./bombardier report --config <path of config json>`  

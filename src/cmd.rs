@@ -10,7 +10,7 @@ pub struct ExecConfig {
     #[serde(default)]
     pub command: String,
 
-    #[serde(deserialize_with = "check_json_file")]
+    #[serde(default)]
     pub environment_file: String,
 
     #[serde(deserialize_with = "check_json_file")]
@@ -43,6 +43,9 @@ pub struct ExecConfig {
 
     #[serde(default)]
     pub continue_on_error: bool,
+
+    #[serde(default)]
+    pub log_to_file: bool,
 
     #[serde(default)]
     pub influxdb: InfluxDB
@@ -130,6 +133,7 @@ pub fn get_config() -> Result<ExecConfig, Box<dyn std::error::Error + Send + Syn
     config.command = subcommand.to_string(); 
     Ok(config)
 }
+
 
 fn check_non_zero <'de, D>(deserializer: D) -> Result<u64, D::Error> 
 where D: Deserializer<'de> {
