@@ -12,12 +12,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest]
     steps:
     - uses: actions/checkout@v2
     - name: Get Libxml2
       if: matrix.os == 'macos-latest'
-      run: brew install libxml2
+      run: brew install libxml2; export LDFLAGS="-L/usr/local/opt/libxml2/lib"; export CPPFLAGS="-I/usr/local/opt/libxml2/include"
     - name: Build
       run: cargo build --verbose
     - name: Run tests
