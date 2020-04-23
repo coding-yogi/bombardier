@@ -17,7 +17,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Get Libxml2
       if: matrix.os == 'macos-latest'
-      run: brew install libxml2; export LDFLAGS="-L/usr/local/opt/libxml2/lib"; export CPPFLAGS="-I/usr/local/opt/libxml2/include"
+      run: pkg-config --cflags --libs "libxml-2.0"; brew install libxml2; export LDFLAGS="-L/usr/local/opt/libxml2/lib"; export CPPFLAGS="-I/usr/local/opt/libxml2/include"
     - name: Build
       run: cargo build --verbose
     - name: Run tests
