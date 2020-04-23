@@ -12,9 +12,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
     steps:
     - uses: actions/checkout@v2
+    - name: Get Libxml2
+      if: ${{ matrix.os }} == 'macos-latest'
+      run: brew install libxml2
     - name: Build
       run: cargo build --verbose
     - name: Run tests
