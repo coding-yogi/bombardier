@@ -25,11 +25,13 @@ jobs:
     - name: Build For Windows
       if: matrix.os == 'ubuntu-latest'
       run: |
+        sudo apt install mingw-w64
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; rustup target add x86_64-pc-windows-gnu
         cat >>~/.cargo/config <<EOF
         [target.x86_64-pc-windows-gnu]
         linker = "x86_64-w64-mingw32-gcc"
         ar = "x86_64-w64-mingw32-gcc-ar"
         EOF
+        export PKG_CONFIG_ALLOW_CROSS=1
         cargo build --release --target=x86_64-pc-windows-gnu --verbose
       
