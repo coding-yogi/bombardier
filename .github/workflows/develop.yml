@@ -27,9 +27,9 @@ jobs:
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; rustup target add x86_64-pc-windows-gnu
         cat >>~/.cargo/config <<EOF
-        > [target.x86_64-pc-windows-gnu]
-        > linker = "x86_64-w64-mingw32-gcc"
-        > ar = "x86_64-w64-mingw32-gcc-ar"
-        > EOF
+        [target.x86_64-pc-windows-gnu]
+        linker = "x86_64-w64-mingw32-gcc"
+        ar = "x86_64-w64-mingw32-gcc-ar"
+        EOF
         cargo build --release --target=x86_64-pc-windows-gnu --verbose
       
