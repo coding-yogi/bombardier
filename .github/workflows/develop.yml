@@ -25,7 +25,7 @@ jobs:
     - name: Build For Windows
       if: matrix.os == 'ubuntu-latest'
       run: |
-        sudo apt install mingw-w64
+        sudo apt-get update -y; sudo apt-get install -y mingw-w64
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; rustup target add x86_64-pc-windows-gnu
         cat >>~/.cargo/config <<EOF
         [target.x86_64-pc-windows-gnu]
