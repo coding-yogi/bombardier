@@ -22,11 +22,18 @@ jobs:
       run: |
         Invoke-WebRequest -Uri https://www.zlatkovic.com/pub/libxml/64bit/libxml2-2.9.3-win32-x86_64.7z -OutFile C:\libxml2-2.9.3-win32-x86_64.7z
         & ${env:ProgramFiles}\7-Zip\7z.exe x C:\libxml2-2.9.3-win32-x86_64.7z -oC:\libxml2
-        $Env:PKG_CONFIG_PATH="C:\libxml2\lib\pkgconfig"
     - name: Install pkgconfiglite
       if: matrix.os == 'windows-latest'
       run: choco install pkgconfiglite
-    - name: Build
+    - name: Build for mac & linux
+      if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
       run: cargo build --verbose
+    - name: Build for windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        $Env:PKG_CONFIG_PATH="C:\libxml2\lib\pkgconfig"
+        cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+      
+      
