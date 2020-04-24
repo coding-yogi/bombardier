@@ -21,6 +21,9 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         Invoke-WebRequest -Uri https://www.zlatkovic.com/pub/libxml/64bit/libxml2-2.9.3-win32-x86_64.7z -OutFile C:\libxml2-2.9.3-win32-x86_64.7z
+    - name: unzip Libxml2 for windows
+      if: matrix.os == 'windows-latest'
+      run: |
         Expand-Archive C:\libxml2-2.9.3-win32-x86_64.7z -DestinationPath C:\libxml2-2.9.3-win32-x86_64
     - name: Install pkgconfiglite
       if: matrix.os == 'windows-latest'
