@@ -22,7 +22,7 @@ jobs:
       run: |
         Invoke-WebRequest -Uri https://www.zlatkovic.com/pub/libxml/64bit/libxml2-2.9.3-win32-x86_64.7z -OutFile C:\libxml2-2.9.3-win32-x86_64.7z
         & ${env:ProgramFiles}\7-Zip\7z.exe x C:\libxml2-2.9.3-win32-x86_64.7z -oC:\libxml2
-        set PKG_CONFIG_PATH=C:\libxml2\lib\pkgconfig
+        $Env:PKG_CONFIG_PATH=C:\libxml2\lib\pkgconfig
     - name: Install pkgconfiglite
       if: matrix.os == 'windows-latest'
       run: choco install pkgconfiglite
