@@ -14,9 +14,15 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
     - uses: actions/checkout@v2
-    - name: Get Libxml2
+    - name: Get Libxml2 macos
       if: matrix.os == 'macos-latest'
       run: brew install pkg-config libxml2; export PKG_CONFIG_PATH="/usr/local/opt/libxml2/lib/pkgconfig"
+    - name: Get Libxml2 for windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        Invoke-WebRequest -Uri https://www.zlatkovic.com/pub/libxml/64bit/libxml2-2.9.3-win32-x86_64.7z -OutFile "C:\libxml2\libxml2-2.9.3-win32-x86_64.7z"
+        unzip "C:\libxml2\libxml2-2.9.3-win32-x86_64.7z"
+        set PKG_CONFIG_PATH=C:\libxml2\libxml2-2.9.3-win32-x86_64\lib\pkgconfig
     - name: Install pkgconfiglite
       if: matrix.os == 'windows-latest'
       run: choco install pkgconfiglite
