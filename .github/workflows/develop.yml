@@ -20,9 +20,9 @@ jobs:
         target: x86_64-pc-windows-gnu
         toolchain: stable
     
-    - name: Install pkgconfiglite
+    - name: Install pkgconfig
       if: matrix.os == 'windows-latest'
-      run: choco install pkgconfiglite
+      run: msys2do pacman --noconfirm -S mingw-w64-x86_64-pkg-config
     
     - name: Install libxml2 for windows
       if: matrix.os == 'windows-latest'
