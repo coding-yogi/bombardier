@@ -27,10 +27,7 @@ jobs:
         msys2do pacman --noconfirm -S libxml2-devel
         ls "D:\a\_temp\msys\msys64\usr\lib\pkgconfig"
       
-    - uses: actions-rs/toolchain@v1
-      with:
-        target: x86_64-pc-windows-gnu
-        toolchain: stable
+ 
       
     - name: Build for windows
       if: matrix.os == 'windows-latest'
