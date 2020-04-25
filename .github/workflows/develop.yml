@@ -22,16 +22,12 @@ jobs:
         default: true
         override: true
     
-    - name: Install pkgconfig
+    - name: Install mingw-w64-x86_64-gcc, pkgconfig & libxml2
       if: matrix.os == 'windows-latest'
-      run: msys2do pacman --noconfirm -S mingw-w64-x86_64-pkg-config
-    
-    - name: Install libxml2 for windows
-      if: matrix.os == 'windows-latest'
-      run: msys2do pacman --noconfirm -S libxml2-devel
-    
-    - name: msys shell
-      run: msys2do which pkg-config
+      run: |
+        msys2do pacman --noconfirm -S mingw-w64-x86_64-pkg-config
+        msys2do pacman --noconfirm -S mingw-w64-x86_64-gcc
+        msys2do pacman --noconfirm -S libxml2-devel
         
     - name: Build for windows
       if: matrix.os == 'windows-latest'
