@@ -23,7 +23,9 @@ jobs:
     
     - name: Install libxml2 for windows
       if: matrix.os == 'windows-latest'
-      run: msys2do pacman --noconfirm -S libxml2-devel
+      run: |
+        ls "D:\a\_temp\msys\\msys64\usr"
+        msys2do pacman --noconfirm -S libxml2-devel
       
     - uses: actions-rs/toolchain@v1
       with:
