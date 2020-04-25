@@ -38,8 +38,8 @@ jobs:
       env:
         PKG_CONFIG_PATH: 'D:\a\_temp\msys\msys64\usr\lib\pkgconfig'
       run: |
-        ls "D:\a\_temp\msys"
-        ls "D:\a\_temp\msys\msys64"
+      
+        ls "D:\a\_temp\msys\msys64\mingw64\bin"
         
         $env:path
         where.exe pkg-config
