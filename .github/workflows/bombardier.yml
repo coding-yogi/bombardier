@@ -64,6 +64,8 @@ jobs:
         Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe`"`nar = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc-ar.exe`""
         cargo build --release --target=x86_64-pc-windows-gnu 
         ls target\release
+        ls target\debug
+        ls target
     - name: release
       uses: svenstaro/upload-release-action@v1-release
       if: github.ref == 'refs/heads/master' && github.event_name == 'push' 
