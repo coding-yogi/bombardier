@@ -38,7 +38,7 @@ jobs:
         where.exe pkg-config
         where.exe x86_64-w64-mingw32-gcc
         pkg-config --cflags --libs libxml-2.0
-        Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"x86_64-w64-mingw32-gcc`"`nar = `"x86_64-w64-mingw32-gcc-ar`""
+        Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"D:\a\_temp\msys\msys64\mingw64\bin\x86_64-w64-mingw32-gcc.exe`"`nar = `"D:\a\_temp\msys\msys64\mingw64\bin\x86_64-w64-mingw32-gcc-ar.exe`""
         cargo build --target=x86_64-pc-windows-gnu --verbose
         
       
