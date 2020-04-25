@@ -70,4 +70,4 @@ jobs:
     - uses: actions/upload-artifact@v1
       with:
         name: bombardier-win-x64.exe
-        path: .\target\release\bombardier.exe
+        path: .\x86_64-pc-windows-gnu\target\release\bombardier.exe
