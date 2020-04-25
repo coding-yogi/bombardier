@@ -34,6 +34,7 @@ jobs:
         PKG_CONFIG_PATH: 'D:\a\_temp\msys\msys64\usr\lib\pkgconfig'
       run: |
         $env:PKG_CONFIG_PATH 
+        where.exe pkg-config
         Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"x86_64-w64-mingw32-gcc`"`nar = `"x86_64-w64-mingw32-gcc-ar`""
         cargo build --target=x86_64-pc-windows-gnu --verbose
         
