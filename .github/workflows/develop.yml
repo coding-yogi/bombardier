@@ -36,7 +36,7 @@ jobs:
         ls ~
         pkg-config --cflags --libs libxml-2.0
         Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe`"`nar = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc-ar.exe`""
-        where.exe cargo
+        cargo build --target=x86_64-pc-windows-gnu
         
     
         
