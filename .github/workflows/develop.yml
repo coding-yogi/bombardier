@@ -11,28 +11,32 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [windows-latest]
     steps:
     - uses: actions/checkout@v2
-    - name: Get Libxml2 macos
-      if: matrix.os == 'macos-latest'
-      run: brew install pkg-config libxml2; export PKG_CONFIG_PATH="/usr/local/opt/libxml2/lib/pkgconfig"
+  
     - name: Get Libxml2 for windows
       if: matrix.os == 'windows-latest'
       run: |
         Invoke-WebRequest -Uri https://www.zlatkovic.com/pub/libxml/64bit/libxml2-2.9.3-win32-x86_64.7z -OutFile C:\libxml2-2.9.3-win32-x86_64.7z
         & ${env:ProgramFiles}\7-Zip\7z.exe x C:\libxml2-2.9.3-win32-x86_64.7z -oC:\libxml2
+        
     - name: Install pkgconfiglite
       if: matrix.os == 'windows-latest'
       run: choco install pkgconfiglite
-    - name: Build for mac & linux
-      if: matrix.os == 'macos-latest' || matrix.os == 'ubuntu-latest'
-      run: cargo build --verbose
+      
+    - uses: actions-rs/toolchain@v1
+      with:
+        target: x86_64-pc-windows-gnu
+        toolchain: stable
+      
     - name: Build for windows
       if: matrix.os == 'windows-latest'
       run: |
         $Env:PKG_CONFIG_PATH="C:\libxml2\lib\pkgconfig"
+        Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"x86_64-w64-mingw32-gcc`"`nar = `"x86_64-w64-mingw32-gcc-ar`""
         cargo build --verbose
+        
     - name: Run tests
       run: cargo test --verbose
       
