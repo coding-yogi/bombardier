@@ -29,12 +29,13 @@ jobs:
       with:
         target: x86_64-pc-windows-gnu
         toolchain: stable
+        default: true
       
     - name: Build for windows
       if: matrix.os == 'windows-latest'
       run: |
         $Env:PKG_CONFIG_PATH="C:\libxml2\lib\pkgconfig"
         Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"x86_64-w64-mingw32-gcc`"`nar = `"x86_64-w64-mingw32-gcc-ar`""
-        cargo build --target=x86_64-pc-windows-gnu --verbose
+        cargo build --verbose
         
       
