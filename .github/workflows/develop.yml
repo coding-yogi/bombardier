@@ -26,8 +26,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain libxml2-devel
     
-    - name: Build via Msys2
-      run: msys2do which cargo
+ 
       
     - name: Build for windows
       if: matrix.os == 'windows-latest'
@@ -36,6 +35,7 @@ jobs:
       run: |
         $env:path = "D:\a\_temp\msys\msys64\mingw64\bin;" + $env:path
         ls "D:\a\_temp\msys\msys64\mingw64\bin"
+        ls ~
         pkg-config --cflags --libs libxml-2.0
         Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe`"`nar = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc-ar.exe`""
         where.exe cargo
