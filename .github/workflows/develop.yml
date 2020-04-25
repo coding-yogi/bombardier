@@ -29,7 +29,6 @@ jobs:
       with:
         target: x86_64-pc-windows-gnu
         toolchain: stable
-        override: true
       
     - name: Build for windows
       if: matrix.os == 'windows-latest'
