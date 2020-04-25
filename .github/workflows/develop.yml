@@ -32,13 +32,8 @@ jobs:
         PKG_CONFIG_PATH: 'D:\a\_temp\msys\msys64\usr\lib\pkgconfig'
       run: |
         $env:path = "D:\a\_temp\msys\msys64\mingw64\bin;" + $env:path
-        ls "D:\a\_temp\msys\msys64\mingw64\bin"
-        ls ~
         pkg-config --cflags --libs libxml-2.0
         Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe`"`nar = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc-ar.exe`""
         cargo build --target=x86_64-pc-windows-gnu
+        ls D:\a\bombardier
         
-    
-        
-        
-      
