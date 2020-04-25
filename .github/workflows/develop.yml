@@ -38,7 +38,7 @@ jobs:
       env:
         PKG_CONFIG_PATH: 'D:\a\_temp\msys\msys64\usr\lib\pkgconfig'
       run: |
-        $env:path = "D:\a\_temp\msys\msys64\mingw64\bin" + $env:path
+        $env:path = "D:\a\_temp\msys\msys64\mingw64\bin;" + $env:path
         where.exe pkg-config
        
         pkg-config --cflags --libs libxml-2.0
