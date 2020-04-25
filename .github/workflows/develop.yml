@@ -37,7 +37,7 @@ jobs:
         $env:path = "D:\a\_temp\msys\msys64\usr\bin;" + $env:path
         $env:path
         where.exe pkg-config
-        pkgconfig --cflags --libs libxml-2.0
+        pkg-config --cflags --libs libxml-2.0
         Add-Content ~/.cargo/config "[target.x86_64-pc-windows-gnu]`nlinker = `"x86_64-w64-mingw32-gcc`"`nar = `"x86_64-w64-mingw32-gcc-ar`""
         set RUST_BACKTRACE=1
         cargo build --target=x86_64-pc-windows-gnu --verbose
