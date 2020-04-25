@@ -18,7 +18,7 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         target: x86_64-pc-windows-gnu
-        toolchain: stable
+        toolchain: stable-x86_64-pc-windows-gnu
         default: true
         override: true
     
@@ -26,7 +26,16 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain libxml2-devel
     
- 
+    - name: Build via Msys2
+      run: |
+        msys2do export PATH=/c/Rust/.cargo/bin:$PATH
+        msys2do echo $PATH
+        msys2do cat >>/c/Rust/.cargo/config <<EOF
+        [target.x86_64-pc-windows-gnu]
+        linker = "x86_64-w64-mingw32-gcc"
+        ar = "x86_64-w64-mingw32-gcc-ar"
+        msys2do cat /c/Rust/.cargo/config
+        msys2do cargo build --target=x86_64-pc-windows-gnu
       
     - name: Build for windows
       if: matrix.os == 'windows-latest'
