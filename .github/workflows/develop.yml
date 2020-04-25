@@ -27,9 +27,7 @@ jobs:
       run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain libxml2-devel
     
     - name: Build via Msys2
-      shell: msys2do "{0}"
-      run: |
-        which cargo
+      run: msys2do which cargo
       
     - name: Build for windows
       if: matrix.os == 'windows-latest'
