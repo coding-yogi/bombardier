@@ -19,6 +19,7 @@ jobs:
       with:
         target: x86_64-pc-windows-gnu
         toolchain: stable
+        default: true
         override: true
     
     - name: Install pkgconfig
