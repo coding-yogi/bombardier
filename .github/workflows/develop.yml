@@ -24,10 +24,7 @@ jobs:
     
     - name: Install mingw-w64-x86_64-gcc, pkgconfig & libxml2
       if: matrix.os == 'windows-latest'
-      run: |
-        msys2do pacman --noconfirm -S mingw-w64-x86_64-pkg-config
-        msys2do pacman --noconfirm -S mingw-w64-x86_64-gcc
-        msys2do pacman --noconfirm -S libxml2-devel
+      run: msys2do pacman --noconfirm -S mingw-w64-x86_64-pkg-config mingw-w64-x86_64-toolchain mingw-w64-x86_64-gcc libxml2-devel
         
     - name: Build for windows
       if: matrix.os == 'windows-latest'
