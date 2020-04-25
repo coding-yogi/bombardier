@@ -30,7 +30,6 @@ jobs:
       run: |
         msys2do export PATH=/c/Rust/.cargo/bin:$PATH
         msys2do echo $PATH
-        msys2do cat /c/Rust/.cargo/config
         msys2do cargo build --target=x86_64-pc-windows-gnu
       
     - name: Build for windows
