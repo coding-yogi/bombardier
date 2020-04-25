@@ -2,6 +2,10 @@ name: bombardier
 
 on:
   push:
+    tags:
+      - '*'
+    paths-ignore: 
+      - 'docs/**'
     branches: [ develop, master ]
   pull_request:
     branches: [ develop, master ]
@@ -15,7 +19,7 @@ jobs:
       run: cargo build --release
     - name: release
       uses: svenstaro/upload-release-action@v1-release
-      if: github.ref == 'refs/heads/master' && github.event_name == 'push' 
+      if: startsWith(github.ref, 'refs/tags/')
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ./target/release/bombardier
@@ -32,16 +36,12 @@ jobs:
       run: cargo build --release
     - name: release
       uses: svenstaro/upload-release-action@v1-release
-      if: github.ref == 'refs/heads/master' && github.event_name == 'push' 
+      if: startsWith(github.ref, 'refs/tags/')
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ./target/release/bombardier
         asset_name: bombardier-macos
         tag: ${{ github.ref }}
-    - uses: actions/upload-artifact@v1
-      with:
-        name: bombardier-macos-x64
-        path: ./target/release/bombardier
 
   Windows:
     runs-on: windows-latest
@@ -66,13 +66,9 @@ jobs:
         ls target\release
     - name: release
       uses: svenstaro/upload-release-action@v1-release
-      if: github.ref == 'refs/heads/master' && github.event_name == 'push' 
+      if: startsWith(github.ref, 'refs/tags/')
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: .\target\release\bombardier.exe
+        file: .\x86_64-pc-windows-gnu\target\release\bombardier.exe
         asset_name: bombardier-win-x64.exe
         tag: ${{ github.ref }}
-    - uses: actions/upload-artifact@v1
-      with:
-        name: bombardier-win-x64.exe
-        path: .\target\release\bombardier.exe
