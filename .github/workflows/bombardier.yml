@@ -55,7 +55,9 @@ jobs:
         default: true
         override: true
     - name: install mingw-w64-x86_64-toolchain & libxml2
-      run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain libxml2-devel
+      run: |
+        msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain libxml2-devel
+        msys2do which msys-xml2-2.dll
     - name: build
       env:
         PKG_CONFIG_PATH: 'D:\a\_temp\msys\msys64\usr\lib\pkgconfig'
