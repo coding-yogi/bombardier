@@ -57,11 +57,11 @@ jobs:
     - name: install mingw-w64-x86_64-toolchain & libxml2
       run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain libxml2-devel
  
-    - name: upload msys-xml2-2.dll
+    - name: upload msys-icuuc6.dll
       uses: actions/upload-artifact@v1
       with:
-        name: msys-xml2-2.dll
-        path: D:\a\_temp\msys\\msys64\usr\bin\msys-xml2-2.dll
+        name: msys-icuuc6.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-icuuc6.dll
      
     - name: build
       env:
