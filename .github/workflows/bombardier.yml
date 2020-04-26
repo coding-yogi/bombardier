@@ -59,41 +59,23 @@ jobs:
         msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain libxml2-devel
         msys2do ls /usr/bin
  
-    - name: upload msys-icuuc64.dll
+    - name: upload msys-2.0.dll
       uses: actions/upload-artifact@v1
       with:
-        name: msys-icuuc64.dll
-        path: D:\a\_temp\msys\\msys64\usr\bin\msys-icuuc64.dll
+        name: msys-2.0.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-2.0.dll
         
-    - name: upload msys-lzma-5.dll
+    - name: upload msys-iconv-2.dll
       uses: actions/upload-artifact@v1
       with:
-        name: msys-lzma-5.dll
-        path: D:\a\_temp\msys\\msys64\usr\bin\msys-lzma-5.dll
+        name: msys-iconv-2.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-iconv-2.dll
         
-    - name: upload msys-ncurses++w6.dll
+    - name: upload  msys-icudata64.dll
       uses: actions/upload-artifact@v1
       with:
-        name: msys-ncurses++w6.dll
-        path: D:\a\_temp\msys\\msys64\usr\bin\msys-ncurses++w6.dll
-        
-    - name: upload msys-ncursesw6.dll
-      uses: actions/upload-artifact@v1
-      with:
-        name: msys-ncursesw6.dll
-        path: D:\a\_temp\msys\\msys64\usr\bin\msys-ncursesw6.dll
-        
-    - name: upload msys-readline8.dll
-      uses: actions/upload-artifact@v1
-      with:
-        name: msys-readline8.dll
-        path: D:\a\_temp\msys\\msys64\usr\bin\msys-readline8.dll
-        
-    - name: upload msys-z.dll
-      uses: actions/upload-artifact@v1
-      with:
-        name: msys-z.dll
-        path: D:\a\_temp\msys\\msys64\usr\bin\msys-z.dll
+        name:  msys-icudata64.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\ msys-icudata64.dll
      
     - name: build
       env:
