@@ -63,7 +63,37 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: msys-icuuc64.dll
-        path: D:\a\_temp\msys\\msys64\usr\bin\msys-icuuc6.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-icuuc64.dll
+        
+    - name: upload msys-lzma-5.dll
+      uses: actions/upload-artifact@v1
+      with:
+        name: msys-lzma-5.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-lzma-5.dll
+        
+    - name: upload msys-ncurses++w6.dll
+      uses: actions/upload-artifact@v1
+      with:
+        name: msys-ncurses++w6.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-ncurses++w6.dll
+        
+    - name: upload msys-ncursesw6.dll
+      uses: actions/upload-artifact@v1
+      with:
+        name: msys-ncursesw6.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-ncursesw6.dll
+        
+    - name: upload msys-readline8.dll
+      uses: actions/upload-artifact@v1
+      with:
+        name: msys-readline8.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-readline8.dll
+        
+    - name: upload msys-z.dll
+      uses: actions/upload-artifact@v1
+      with:
+        name: msys-z.dll
+        path: D:\a\_temp\msys\\msys64\usr\bin\msys-z.dll
      
     - name: build
       env:
