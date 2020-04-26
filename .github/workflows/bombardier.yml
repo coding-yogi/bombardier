@@ -71,3 +71,9 @@ jobs:
         file: .\target\x86_64-pc-windows-gnu\release\bombardier.exe
         asset_name: bombardier-win-x64.exe
         tag: ${{ github.ref }}
+        
+    - name: upload atrifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: bombardier.exe
+        path: .\target\x86_64-pc-windows-gnu\release\bombardier.exe
