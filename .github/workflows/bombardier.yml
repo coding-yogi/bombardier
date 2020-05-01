@@ -58,10 +58,9 @@ jobs:
       run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain  mingw-w64-x86_64-libxml2
     - name: build
       run: |
-        msys2do ls /C/Rust/.cargo
-        msys2do printf "[target.x86_64-pc-windows-gnu]\nlinker = \"x86_64-w64-mingw32-gcc.exe\"\nar = \"x86_64-w64-mingw32-gcc-ar.exe\"" >> /c/Rust/.cargo/config
-        msys2do cat /c/Rust/.cargo/config
-        msys2do PKG_CONFIG_PATH=/usr/lib/pkgconfig /c/Rust/.cargo/bin/cargo build --release --target=x86_64-pc-windows-gnu 
+        msys2do printf "[target.x86_64-pc-windows-gnu]\nlinker = \"x86_64-w64-mingw32-gcc.exe\"\nar = \"x86_64-w64-mingw32-gcc-ar.exe\"" >> /C/Rust/.cargo/config
+        msys2do cat /C/Rust/.cargo/config
+        msys2do PKG_CONFIG_PATH=/usr/lib/pkgconfig /C/Rust/.cargo/bin/cargo build --release --target=x86_64-pc-windows-gnu 
         msys2do zip bombardier-win-x64.zip ./target/x86_64-pc-windows-gnu/release/bombardier.exe /usr/bin/libxml2-2.dll /usr/bin/libiconv-2.dll /usr/bin/liblzma-5.dll /usr/bin/zlib1.dll
         
     - name: release
