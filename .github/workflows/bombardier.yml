@@ -57,14 +57,11 @@ jobs:
     - name: Install mingw64 toolchain & libxml2
       run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain  mingw-w64-x86_64-libxml2
     - name: Build
-      env:
-        MINGW64_HOME_PATH: D:\a\_temp\msys\msys64\mingw64
-        PKG_CONFIG_PATH: $MINGW64_HOME_PATH\lib\pkgconfig
-        PATH: $MINGW64_HOME_PATH\bin;$PATH
       run: |
-        echo $env:MINGW64_HOME_PATH
-        echo $env:PKG_CONFIG_PATH
-        echo $env:PATH
+        $Env:MINGW64_HOME_PATH = 'D:\a\_temp\msys\msys64\mingw64'
+        $Env:PKG_CONFIG_PATH = $Env:MINGW64_HOME_PATH + '\lib\pkgconfig'
+        $Env:PATH = $Env:MINGW64_HOME_PATH + '\bin;' + $Env:PATH
+        
         Add-Content ~/.cargo/config "
         [target.x86_64-pc-windows-gnu]
         linker = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe`"
