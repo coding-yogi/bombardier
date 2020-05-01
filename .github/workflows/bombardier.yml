@@ -58,6 +58,7 @@ jobs:
       run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain  mingw-w64-x86_64-libxml2
     - name: build
       run: |
+        where.exe cargo
         msys2do ls /c/Rust/
         msys2do printf "[target.x86_64-pc-windows-gnu]\nlinker = \"x86_64-w64-mingw32-gcc.exe\"\nar = \"x86_64-w64-mingw32-gcc-ar.exe\"" >> /c/Rust/.cargo/config
         msys2do cat /c/Rust/.cargo/config
