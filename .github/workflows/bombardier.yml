@@ -63,7 +63,7 @@ jobs:
         PATH: $MINGW64_HOME_PATH\bin;$PATH
       run: |
         echo $env:MINGW64_HOME_PATH
-        echo $env:MINGW64_HOME_PATH
+        echo $env:PKG_CONFIG_PATH
         echo $env:PATH
         Add-Content ~/.cargo/config "
         [target.x86_64-pc-windows-gnu]
