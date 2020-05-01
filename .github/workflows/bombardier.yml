@@ -62,6 +62,9 @@ jobs:
         PKG_CONFIG_PATH: $MINGW64_HOME_PATH\lib\pkgconfig
         PATH: $MINGW64_HOME_PATH\bin;$PATH
       run: |
+        echo $env:MINGW64_HOME_PATH
+        echo $env:MINGW64_HOME_PATH
+        echo $env:PATH
         Add-Content ~/.cargo/config "
         [target.x86_64-pc-windows-gnu]
         linker = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe`"
