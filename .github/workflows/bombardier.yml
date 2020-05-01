@@ -56,14 +56,30 @@ jobs:
         override: true
     - name: install mingw-w64-x86_64-toolchain & mingw-w64-x86_64-libxml2
       run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain  mingw-w64-x86_64-libxml2
+      
     - name: build
+      env:
+        MINGW64_HOME: D:\a\_temp\msys\msys64\mingw64
+        PKG_CONFIG_PATH: $MINGW64_HOME\lib\pkgconfig
       run: |
-        ls "C:\Program Files\Git\mingw64\bin"
-        msys2do ls /C/Rust/.cargo
-        msys2do printf "[target.x86_64-pc-windows-gnu]\nlinker = \"x86_64-w64-mingw32-gcc.exe\"\nar = \"x86_64-w64-mingw32-gcc-ar.exe\"" >> /C/Rust/.cargo/config
-        msys2do cat /C/Rust/.cargo/config
-        msys2do PKG_CONFIG_PATH=/usr/lib/pkgconfig /C/Rust/.cargo/bin/cargo build --release --target=x86_64-pc-windows-gnu 
-        msys2do zip bombardier-win-x64.zip ./target/x86_64-pc-windows-gnu/release/bombardier.exe /usr/bin/libxml2-2.dll /usr/bin/libiconv-2.dll /usr/bin/liblzma-5.dll /usr/bin/zlib1.dll
+        $env:path = $env:MINGW64_HOME + "\bin;" + $env:path
+        
+        Add-Content ~/.cargo/config "
+        [target.x86_64-pc-windows-gnu]
+        linker = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe`"
+        ar = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc-ar.exe`""
+        
+        cargo build --release --target=x86_64-pc-windows-gnu 
+        
+    - name: Zip with dependencies
+      run: |
+        cd "D:\a\_temp\msys\msys64\mingw64\bin"
+        $compress = @{
+          Path = "C:\Reference\Draftdoc.docx", "libxml2-2.dll", "libiconv-2.dll", "liblzma-5.dll", "zlib1.dll"
+          CompressionLevel = "Fastest"
+          DestinationPath = "C:\Archives\Draft.Zip"
+        }
+        Compress-Archive @compress
         
     - name: release
       uses: svenstaro/upload-release-action@v1-release
