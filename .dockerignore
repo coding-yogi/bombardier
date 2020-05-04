@@ -1,0 +1,7 @@
+.git
+.github
+docs
+target
+readme.md
+*.json
+*.log

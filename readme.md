@@ -13,6 +13,16 @@ If you face issues building the binaries from the source please check [troublesh
 
 ## Using binaries
 If you do not wish to build bombardier from source, you can always download the binaries and use the tool directly. Go to [releases](https://github.com/coding-yogi/bombardier/releases) to download the binary of your choice
+
+## Using docker
+Bombardier can run as a Docker container too. You can build the image with following command  
+`docker build . -t bombardier`  
+
+Container can be started using below command  
+`docker run --name bombardier -v $PWD:/home bombardier:latest bombard --config /home/config.json`  
+
+Note the volume used. Present working directory on host is mapped to `/home` directory on container. 
+With this approach you need not copy your config file or collections file into the container. Make sure you update paths accordingly in config file
   
 ## Config json
 You need to create a json file which can tell Bombardier about the load configuration.  
