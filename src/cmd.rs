@@ -8,9 +8,6 @@ use log::{info, warn};
 pub struct ExecConfig {
 
     #[serde(default)]
-    pub command: String,
-
-    #[serde(default)]
     pub environment_file: String,
 
     #[serde(deserialize_with = "check_json_file")]
@@ -48,6 +45,12 @@ pub struct ExecConfig {
     pub log_to_file: bool,
 
     #[serde(default)]
+    pub distributed: bool,
+
+    #[serde(default)]
+    pub nodes: Vec<String>,
+
+    #[serde(default)]
     pub influxdb: InfluxDB
 }
 
@@ -60,6 +63,7 @@ pub struct InfluxDB {
 }
 
 const CONFIG_ARG_NAME: &str = "config json file";
+const PORT_ARG_NAME: &str = "websocket port";
 const JSON_EXT: &str = ".json";
 const DEFAULT_REPORT_FILE: &str = "report.csv";
 
@@ -71,7 +75,7 @@ fn default_to_one() -> u64 {
     1
 }
 
-fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
+pub fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
     let config_arg = create_config_arg(CONFIG_ARG_NAME);
 
     App::new("Bombardier")
@@ -83,6 +87,19 @@ fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
         .subcommand(SubCommand::with_name("report")
                 .about("Generates the report from report file")
                 .arg(&config_arg))
+        .subcommand(SubCommand::with_name("node")
+                .about("Starts bombardier as a node")
+                .arg(Arg::with_name(PORT_ARG_NAME)
+                        .short("p")
+                    .long("port")
+                    .takes_value(true)
+                    .required(true)
+                    .validator(|s: String| {
+                        match s.parse::<i32>() {
+                            Ok(_) => Ok(()),
+                            Err(_) => Err(String::from("Port should be an integer"))
+                        }
+                    })))
 }
 
 fn create_config_arg<'a>(arg_name: &'a str) -> Arg<'a, 'a> {
@@ -118,22 +135,15 @@ fn get_config_from_file(config_file_path: String) -> Result<ExecConfig, Box<dyn 
     Ok(config)
 }
 
-
-pub fn get_config() -> Result<ExecConfig, Box<dyn std::error::Error + Send + Sync>> {
-    let matches = create_cmd_app().get_matches();
-    let (subcommand, subcommand_args) = matches.subcommand();
-
-    if subcommand == "" {
-        return Err("No subcommand found. Should either be 'bombard' or 'report'".into())
-    }
-
+pub fn get_config(subcommand_args: Option<&ArgMatches<>>) -> Result<ExecConfig, Box<dyn std::error::Error + Send + Sync>> {
     let config_file_path = get_value_as_str(subcommand_args, CONFIG_ARG_NAME); 
-    let mut config = get_config_from_file(config_file_path)?;
-
-    config.command = subcommand.to_string(); 
+    let config = get_config_from_file(config_file_path)?;
     Ok(config)
 }
 
+pub fn get_port(subcommand_args: Option<&ArgMatches<>>) -> i32 {
+    get_value_as_int(subcommand_args, PORT_ARG_NAME)
+}
 
 fn check_non_zero <'de, D>(deserializer: D) -> Result<u64, D::Error> 
 where D: Deserializer<'de> {
@@ -164,5 +174,15 @@ fn get_value_as_str(matches: Option<&ArgMatches>, arg: &str) -> String {
                         None => "".to_string()
         },
         None => "".to_string()
+    }
+}
+
+fn get_value_as_int(matches: Option<&ArgMatches>, arg: &str) -> i32 {
+    match matches {
+        Some(x) => match x.value_of(arg) {
+                        Some(y) => y.parse::<i32>().unwrap(),
+                        None => 0
+        },
+        None => 0
     }
 }
