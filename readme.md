@@ -36,14 +36,29 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
         "username": "",
         "password": "",
         "dbname": "mydb"
-    }
+    },
+    "distributed": true,
+    "nodes": [
+        "10.16.21.98:7000",
+        "10.16.21.99:7000",
+        "10.16.21.100:7001"
+    ]
 }
 ```
 
 For more details regarding configuration json, please check [configurations](docs/configuration.md) doc.  
 
-## Running Tests
+## Running Tests on single instance
 `./bombardier bombard --config <path of config json>`
+
+## Distributed Tests
+Starting bombardier as a node  
+ `./bombardier node --port <port on which node should listen>`
+
+Starting bombardier as a load distributor  
+`./bombardier bombard --config <path of config json>` 
+
+Note: Make sure `distributed` flag is set to `true` in config file and nodes are running
 
 ## Enabling debug mode for more logs
 `export RUST_LOG=debug`  
