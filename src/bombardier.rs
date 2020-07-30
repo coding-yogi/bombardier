@@ -32,37 +32,34 @@ impl Bombardier {
         let no_of_threads = config.thread_count;
         let no_of_iterations = config.iterations;
         let thread_delay = config.rampup_time * 1000 / no_of_threads;
+        let think_time = config.think_time;
+        let continue_on_error = config.continue_on_error;
+        let is_distributed = config.distributed;
 
         let start_time = time::Instant::now();
-        let execution_time = self.config.execution_time;
+        let execution_time = config.execution_time;
     
-        let client = http::get_sync_client(&config);
-        let client_arc = Arc::new(client);
+        let client_arc = Arc::new(http::get_sync_client(&config));
 
-        let influx_client = http::get_async_client();
-        let influx_req = influxdb::build_request(&influx_client, &config.influxdb);
+        let influx_req = influxdb::build_request(&http::get_async_client(), &config.influxdb);
         let influx_arc = Arc::new(influx_req);
 
-        let is_distributed = config.distributed;
+        let requests = Arc::new(self.requests.clone());
         
         let report_file = get_report_file(is_distributed, &config.report_file);
-
-        let args_arc = Arc::new(config);
-        let requests = Arc::new(self.requests.clone());
-
-        let mut handles = vec![];
         let report_arc = Arc::new(Mutex::new(report_file));
-
+       
         let data_count = self.vec_data_map.len();
         let vec_data_map_arc = Arc::new(self.vec_data_map.clone());
         let data_counter: usize = 0;
         let data_counter_arc = Arc::new(Mutex::new(data_counter));
 
+        let mut handles = vec![];
+        
         for thread_cnt in 0..no_of_threads {
             let requests_clone = requests.clone();
             let client_clone = client_arc.clone();
             let influx_clone = influx_arc.clone();
-            let args_clone = args_arc.clone();
             let mut env_map_clone = self.env_map.clone();
             let report_clone = report_arc.clone();
             let vec_data_map_clone = vec_data_map_arc.clone();
@@ -109,7 +106,7 @@ impl Bombardier {
                             
                                 vec_stats.push(new_stats); //Add stats to vector
 
-                                if !args_clone.continue_on_error && is_failed_request(response.status().as_u16()) { //check status
+                                if !continue_on_error && is_failed_request(response.status().as_u16()) { //check status
                                     warn!("Request {} failed. Skipping rest of the iteration", &request.name);
                                     wait_for_write_to_csv(handle_arc.clone()); //wait for csv writing or sending stats to distributor
                                     break;
@@ -124,14 +121,14 @@ impl Bombardier {
                             },
                             Err(err) => {
                                 error!("Error occured while executing request {}, : {}", &request.name, err);
-                                if !args_clone.continue_on_error {
+                                if !continue_on_error {
                                     warn!("Skipping rest of the iteration as continue on error is set to false");
                                     break;
                                 }
                             }
                         }
 
-                        thread::sleep(time::Duration::from_millis(args_clone.thread_delay)); //wait per request delay
+                        thread::sleep(time::Duration::from_millis(think_time)); //wait per request delay
                     }
 
                     if is_distributed {
@@ -152,7 +149,10 @@ impl Bombardier {
             handle.join().unwrap();
         }
 
-        ws_arc.clone().lock().unwrap().as_mut().unwrap().write_message(tungstenite::Message::from("done"))?;
+        if is_distributed {
+            ws_arc.clone().lock().unwrap().as_mut().unwrap().write_message(tungstenite::Message::from("done"))?;
+        }
+
         Ok(())
     }
 }

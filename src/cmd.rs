@@ -30,7 +30,7 @@ pub struct ExecConfig {
     pub execution_time: u64,
 
     #[serde(default = "default_to_one")]
-    pub thread_delay: u64,
+    pub think_time: u64,
 
     #[serde(deserialize_with = "check_non_zero")]
     pub rampup_time: u64,

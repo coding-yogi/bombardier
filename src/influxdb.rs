@@ -2,8 +2,8 @@
 use crate::cmd;
 use crate::report;
 
-use log::error;
 use chrono::DateTime;
+use log::error;
 use reqwest::{Client, RequestBuilder};
 
 pub fn build_request(client: &Client, influxdb: &cmd::InfluxDB) -> RequestBuilder {
