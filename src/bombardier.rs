@@ -15,18 +15,17 @@ use std::ops::Deref;
 
 use log::{debug, error, warn, trace};
 use tokio::runtime::Builder;
-use ws::Sender;
+use tungstenite::protocol::WebSocket;
 
-pub struct Bombardier {
+pub struct  Bombardier {
     pub config: cmd::ExecConfig,
     pub env_map: HashMap<String, String>,
     pub requests: Vec<parser::Request>,
-    pub vec_data_map: Vec<HashMap<String, String>>,
-    pub ws: Option<Sender>
+    pub vec_data_map: Vec<HashMap<String, String>>
 }
 
 impl Bombardier {
-    pub fn bombard(&self)
+    pub fn bombard(&self, ws_arc: Arc<Mutex<Option<WebSocket<std::net::TcpStream>>>>)
     -> Result<(), Box<dyn std::error::Error + 'static>> {
 
         let config = self.config.clone();
@@ -54,7 +53,6 @@ impl Bombardier {
             report_file = Some(report::create_file(&config.report_file)?);
         } 
 
-        let sender_arc = Arc::new(self.ws.clone());
         let args_arc = Arc::new(config);
         let requests = Arc::new(self.requests.clone());
 
@@ -76,7 +74,7 @@ impl Bombardier {
             let vec_data_map_clone = vec_data_map_arc.clone();
             let data_counter_clone = data_counter_arc.clone();
             
-            let sender_clone = sender_arc.clone();
+            let ws_clone = ws_arc.clone();
             
             let mut thread_iteration = 0;
             let rt = Builder::new().threaded_scheduler().enable_all().build()?;
@@ -111,30 +109,28 @@ impl Bombardier {
                                 let new_stats = report::Stats::new(&request.name, response.status().as_u16(), latency);
                                 let new_stats_clone = new_stats.clone();
                                 let report_clone2 = report_clone.clone();
-                                let sender_clone2 = sender_clone.clone();
                                 
-                                let handle;
+                                let mut handle = None;
 
-                                if is_distributed {
-                                    handle = task::spawn(async move { //Send stats to distributor
-                                        let payload = serde_json::to_string(&new_stats_clone.clone()).unwrap();
-                                        match sender_clone2.clone().as_ref().as_ref().unwrap().send(payload) {
-                                            Err(_) => error!("Unable to send stats to distributor"),
-                                            Ok(_) => ()
-                                        };
-                                    });
-                                } else {
-                                    handle = task::spawn(async move {  //Write to CSV
-                                       // let file: std::fs::File = report_clone2.as_ref().lock().unwrap().as_mut();
+                                if !is_distributed {
+                                   handle = Some(task::spawn(async move {  //Write to CSV
                                         report::write_stats_to_csv(&mut report_clone2.as_ref().lock().unwrap().as_mut().unwrap(), &format!("{}", &new_stats_clone.clone()));
-                                    });
+                                    }));
                                 }
                             
                                 vec_stats.push(new_stats);
 
+                                let handle_arc = Arc::new(Mutex::new(handle));
+                                let handle_clone = handle_arc.clone();
+
                                 if !args_clone.continue_on_error && is_failed_request(response.status().as_u16()) { //check status
                                     warn!("Request {} failed. Skipping rest of the iteration", &request.name);
-                                    task::block_on(async {handle.await}); //wait for csv writing or sending stats to distributor
+                                    
+                                    task::block_on(async { 
+                                        if handle_clone.lock().unwrap().as_mut().is_some() {
+                                            handle_clone.lock().unwrap().as_mut().unwrap().await
+                                        }    
+                                    }); //wait for csv writing or sending stats to distributor
                                     break;
                                 }
 
@@ -143,7 +139,11 @@ impl Bombardier {
                                     Ok(()) => ()
                                 }
 
-                                task::block_on(async {handle.await}); //wait for csv writing or sending stats to distributor
+                                task::block_on(async { 
+                                    if handle_clone.lock().unwrap().as_mut().is_some() {
+                                        handle_clone.lock().unwrap().as_mut().unwrap().await
+                                    }    
+                                }); //wait for csv writing or sending stats to distributor 
                                 
                             },
                             Err(err) => {
@@ -158,15 +158,34 @@ impl Bombardier {
                         thread::sleep(time::Duration::from_millis(args_clone.thread_delay)); //wait per request delay
                     }
 
+                    //Send data to distributor
+                    if is_distributed {
+                        let ws_clone2 = ws_clone.clone();
+                        let vec_stats_clone  = vec_stats.clone();
+                        task::spawn(async move { //Send stats to distributor
+                            let payload = serde_json::to_string(&vec_stats_clone).unwrap();
+                            let mut socket = ws_clone2.lock().unwrap();
+                            if socket.is_some() {
+                                match socket.as_mut().unwrap().write_message(tungstenite::Message::from(payload)) {
+                                    Err(_) => error!("Unable to send stats to distributor"),
+                                    Ok(_) => ()
+                                };
+                            }
+                        });
+                    }
+
+                    //Write to influx DB
                     let builder_clone = influx_clone.deref().try_clone();
                     match builder_clone {
                         None => (),
                         Some(b) => {
                             rt.spawn(async {
-                                influxdb::write_stats(b, vec_stats).await; //Write to influxDB
+                                influxdb::write_stats(b, vec_stats).await; 
                             });
                         },
                     };
+
+                    
                 }
 
                 thread::sleep(time::Duration::from_millis(500)); //Tempfix for influxdb tasks to finish
@@ -180,6 +199,7 @@ impl Bombardier {
             handle.join().unwrap();
         }
 
+        ws_arc.clone().lock().unwrap().as_mut().unwrap().write_message(tungstenite::Message::from("done"))?;
         Ok(())
     }
 }

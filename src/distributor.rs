@@ -4,30 +4,11 @@ use crate::report;
 use crate::socket;
 
 use std::collections::HashMap;
-use std::fs::File;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use log::{debug, info};
-use ws::{Builder, Handler, Message, Result as WsResult};
-
-
-struct Distributor {
-    report_file: File
-}
-
-impl Handler for Distributor {
-
-    fn on_message(&mut self, msg: Message) -> WsResult<()> {
-        let raw_message = msg.as_text()?;
-        debug!("Message received from the node {:#?}", &raw_message);
-
-        //This should be report stat written to CSV file (if possible asynchronously)
-        let stats: report::Stats = serde_json::from_str(raw_message).unwrap();
-        report::write_stats_to_csv(&mut self.report_file, &format!("{}", &stats));
-        
-        Ok(())
-    }
-}
+use tungstenite::{connect, Message};
 
 pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, requests: Vec<parser::Request>) -> Result<(), Box<dyn std::error::Error>> {
 
@@ -36,33 +17,56 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
         return Err(Box::from("No nodes mentioned for distributed bombarding"));
     }
 
-    //let mut clients = vec![];
     info!("Creating report file: {}", &config.report_file);
-    let report_file = report::create_file(&config.report_file).unwrap();
-
-    let mut websocket = Builder::new()
-        .build(move |_| Distributor {
-            report_file: report_file.try_clone().unwrap()
-        })?;
+    let report_file = report::create_file(&config.report_file)?;
 
     let message = socket::Message {
         config: config.clone(),
         env_map: env_map,
         requests: requests
     };
+
+    let mut handles = vec![];
+    let report_arc = Arc::new(Mutex::new(report_file));
+
+    let mut sockets = vec![];
     
-    for node in config.nodes {
-        let url = url::Url::parse(&format!("ws://{}/ws", &node)).unwrap();
-        websocket.connect(url).unwrap();
+    //Make all connection first and abort if any connection fails
+    for node in &config.nodes {
+        let node_address = format!("ws://{}/ws", &node);
+        let (socket, _) = connect(url::Url::parse(&node_address).unwrap())?;
+        info!("Connected to {} successfully", &node_address);
+        sockets.push(socket);
     }
 
-    let broadcaster = websocket.broadcaster();
-    let handle = thread::spawn(move || {
-        websocket.run().unwrap();
-    });
+    //Loop through all connections
+    for mut socket in sockets {
+        socket.write_message(Message::Text(serde_json::to_string(&message).unwrap().into()))?; //Send data to node
 
-    broadcaster.send(serde_json::to_string(&message).unwrap())?;
+        let report_clone = report_arc.clone();
+        handles.push(thread::spawn(move || {
+            loop {
+                let msg = socket.read_message().expect("Error reading message");
+                
+                if msg.is_text() { //Handle only text messages
+                    let text_msg = msg.to_text().unwrap();
+                    debug!("Received from node: {}", text_msg);
 
-    handle.join().unwrap();
+                    if text_msg == "done" { break; } //Exit once "done" message is received from node
+
+                    //Write stats to CSV 
+                    //TODO: Improve performance
+                    let stats: Vec<report::Stats> = serde_json::from_str(text_msg).unwrap();
+                    for stat in stats {
+                        report::write_stats_to_csv(&mut report_clone.lock().unwrap(), &format!("{}", &stat.clone()));
+                    }
+                }
+            } 
+        }));
+    }
+       
+    for handle in handles {
+        handle.join().unwrap();
+    }
     Ok(())
 }

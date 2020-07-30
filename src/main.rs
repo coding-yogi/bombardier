@@ -12,6 +12,7 @@ mod report;
 mod socket;
 
 use log::{info, error};
+use std::sync::{Arc, Mutex};
 
 fn main()  {
 
@@ -86,16 +87,15 @@ fn main()  {
                     config,
                     env_map,
                     requests,
-                    vec_data_map,
-                    ws: None
+                    vec_data_map
                 };
 
-                match bombardier.bombard() {
+                match bombardier.bombard(Arc::new(Mutex::new(None))) {
                     Err(err) => error!("Bombarding failed : {}", err),
                     Ok(()) => ()
                 }   
 
-                info!("Execution Complete. Run report command to get details");
+                info!("Bombarding Complete. Run report command to get details");
             }
             
         },
@@ -120,7 +120,13 @@ fn main()  {
         "node" => {
             info!("Starting bombardier as a node");
             let port = cmd::get_port(subcommand_args);
-            node::serve(&port.to_string())
+            match  node::serve(&port.to_string()) {
+                Err(err) => {
+                    error!("Error occured while running bombardier as node : {}", err);
+                    return;
+                },
+                Ok(()) => ()
+            }; 
         },
         _ => {
             error!("Invalid command");
