@@ -14,7 +14,6 @@ use std::{thread, time};
 use std::ops::Deref;
 
 use log::{debug, error, warn, trace};
-use tokio::runtime::Builder;
 use tungstenite::protocol::WebSocket;
 
 pub struct  Bombardier {
@@ -32,7 +31,6 @@ impl Bombardier {
 
         let no_of_threads = config.thread_count;
         let no_of_iterations = config.iterations;
-        let iteration_based_execution = no_of_iterations > 0;
         let thread_delay = config.rampup_time * 1000 / no_of_threads;
 
         let start_time = time::Instant::now();
@@ -46,12 +44,8 @@ impl Bombardier {
         let influx_arc = Arc::new(influx_req);
 
         let is_distributed = config.distributed;
-        let report_file;
-        if is_distributed {
-            report_file = None;
-        } else {
-            report_file = Some(report::create_file(&config.report_file)?);
-        } 
+        
+        let report_file = get_report_file(is_distributed, &config.report_file);
 
         let args_arc = Arc::new(config);
         let requests = Arc::new(self.requests.clone());
@@ -77,15 +71,14 @@ impl Bombardier {
             let ws_clone = ws_arc.clone();
             
             let mut thread_iteration = 0;
-            let rt = Builder::new().threaded_scheduler().enable_all().build()?;
 
             let handle = thread::spawn(move || {
                 loop {
-                    if iteration_based_execution {
-                        if thread_iteration >= no_of_iterations {
+                    if no_of_iterations > 0 { //Iteration Based execution
+                        if thread_iteration >= no_of_iterations { 
                             break;
                         }
-                    } else if is_execution_time_over(start_time, &execution_time) {
+                    } else if is_execution_time_over(start_time, &execution_time) { //Time based execution
                         break;
                     }
 
@@ -107,30 +100,18 @@ impl Bombardier {
                         match http::execute(&client_clone, processed_request) {
                             Ok((response, latency)) => {
                                 let new_stats = report::Stats::new(&request.name, response.status().as_u16(), latency);
-                                let new_stats_clone = new_stats.clone();
-                                let report_clone2 = report_clone.clone();
                                 
                                 let mut handle = None;
-
                                 if !is_distributed {
-                                   handle = Some(task::spawn(async move {  //Write to CSV
-                                        report::write_stats_to_csv(&mut report_clone2.as_ref().lock().unwrap().as_mut().unwrap(), &format!("{}", &new_stats_clone.clone()));
-                                    }));
+                                    handle = Some(write_to_csv(new_stats.clone(), report_clone.clone()));
                                 }
-                            
-                                vec_stats.push(new_stats);
-
                                 let handle_arc = Arc::new(Mutex::new(handle));
-                                let handle_clone = handle_arc.clone();
+                            
+                                vec_stats.push(new_stats); //Add stats to vector
 
                                 if !args_clone.continue_on_error && is_failed_request(response.status().as_u16()) { //check status
                                     warn!("Request {} failed. Skipping rest of the iteration", &request.name);
-                                    
-                                    task::block_on(async { 
-                                        if handle_clone.lock().unwrap().as_mut().is_some() {
-                                            handle_clone.lock().unwrap().as_mut().unwrap().await
-                                        }    
-                                    }); //wait for csv writing or sending stats to distributor
+                                    wait_for_write_to_csv(handle_arc.clone()); //wait for csv writing or sending stats to distributor
                                     break;
                                 }
 
@@ -139,12 +120,7 @@ impl Bombardier {
                                     Ok(()) => ()
                                 }
 
-                                task::block_on(async { 
-                                    if handle_clone.lock().unwrap().as_mut().is_some() {
-                                        handle_clone.lock().unwrap().as_mut().unwrap().await
-                                    }    
-                                }); //wait for csv writing or sending stats to distributor 
-                                
+                                wait_for_write_to_csv(handle_arc.clone()); //wait for csv writing or sending stats to distributor   
                             },
                             Err(err) => {
                                 error!("Error occured while executing request {}, : {}", &request.name, err);
@@ -158,34 +134,11 @@ impl Bombardier {
                         thread::sleep(time::Duration::from_millis(args_clone.thread_delay)); //wait per request delay
                     }
 
-                    //Send data to distributor
                     if is_distributed {
-                        let ws_clone2 = ws_clone.clone();
-                        let vec_stats_clone  = vec_stats.clone();
-                        task::spawn(async move { //Send stats to distributor
-                            let payload = serde_json::to_string(&vec_stats_clone).unwrap();
-                            let mut socket = ws_clone2.lock().unwrap();
-                            if socket.is_some() {
-                                match socket.as_mut().unwrap().write_message(tungstenite::Message::from(payload)) {
-                                    Err(_) => error!("Unable to send stats to distributor"),
-                                    Ok(_) => ()
-                                };
-                            }
-                        });
+                        write_to_socket(vec_stats.clone(), ws_clone.clone()); //Send data to distributor
                     }
 
-                    //Write to influx DB
-                    let builder_clone = influx_clone.deref().try_clone();
-                    match builder_clone {
-                        None => (),
-                        Some(b) => {
-                            rt.spawn(async {
-                                influxdb::write_stats(b, vec_stats).await; 
-                            });
-                        },
-                    };
-
-                    
+                    write_to_influxdb(vec_stats, influx_clone.clone()); //Write to influx            
                 }
 
                 thread::sleep(time::Duration::from_millis(500)); //Tempfix for influxdb tasks to finish
@@ -204,6 +157,13 @@ impl Bombardier {
     }
 }
 
+fn get_report_file(is_distributed: bool, path: &str) -> Option<std::fs::File> {
+    if is_distributed {
+        None
+    } else {
+        Some(report::create_file(path).unwrap())
+    }
+}
 
 fn get_data_map<'a>(vec_data_map: &'a Vec<HashMap<String, String>>, counter: &mut usize, length: usize) -> &'a HashMap<String, String> {
     let data_map = &vec_data_map[*counter];
@@ -231,4 +191,43 @@ fn preprocess(request: &parser::Request, env_map: &HashMap<String, String>) -> p
             request.clone()
         }
     }
+}
+
+fn write_to_csv(stats: report::Stats, file: std::sync::Arc<std::sync::Mutex<std::option::Option<std::fs::File>>>) -> task::JoinHandle<()>{
+    task::spawn(async move {  //Write to CSV
+        report::write_stats_to_csv(&mut file.as_ref().lock().unwrap().as_mut().unwrap(), &format!("{}", &stats.clone()));
+    })
+}
+
+fn wait_for_write_to_csv(handle: std::sync::Arc<std::sync::Mutex<std::option::Option<task::JoinHandle<()>>>>) {
+    task::block_on(async { 
+        if handle.lock().unwrap().as_mut().is_some() {
+            handle.lock().unwrap().as_mut().unwrap().await
+        }    
+    });
+}
+
+fn write_to_influxdb(stats: Vec<report::Stats>, influxdb: std::sync::Arc<reqwest::RequestBuilder>) {
+    let builder_clone = influxdb.deref().try_clone();
+    match builder_clone {
+        None => (),
+        Some(b) => {
+            task::spawn(async {
+                influxdb::write_stats(b, stats).await; 
+            });
+        },
+    };
+}
+
+fn write_to_socket(stats: Vec<report::Stats>, websocket: std::sync::Arc<std::sync::Mutex<std::option::Option<tungstenite::protocol::WebSocket<std::net::TcpStream>>>>) -> task::JoinHandle<()> {
+    task::spawn(async move { //Send stats to distributor
+        let payload = serde_json::to_string(&stats).unwrap();
+        let mut socket = websocket.lock().unwrap();
+        if socket.is_some() {
+            match socket.as_mut().unwrap().write_message(tungstenite::Message::from(payload)) {
+                Err(_) => error!("Unable to send stats to distributor"),
+                Ok(_) => ()
+            };
+        }
+    })
 }
