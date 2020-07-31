@@ -1,8 +1,9 @@
 use crate::file;
 
 use clap::{Arg, App, ArgMatches, SubCommand};
-use serde::{Serialize, Deserialize, Deserializer, de::Error};
 use log::{info, warn};
+use serde::{Serialize, Deserialize, Deserializer, de::Error};
+
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ExecConfig {

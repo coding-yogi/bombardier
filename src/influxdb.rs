@@ -4,7 +4,7 @@ use crate::report;
 
 use chrono::DateTime;
 use log::error;
-use reqwest::{Client, RequestBuilder};
+use reqwest::blocking::{Client, RequestBuilder};
 
 pub fn build_request(client: &Client, influxdb: &cmd::InfluxDB) -> RequestBuilder {
     let mut url = format!("{}/write?db={}&precision=ms", influxdb.url, influxdb.dbname);
@@ -15,14 +15,14 @@ pub fn build_request(client: &Client, influxdb: &cmd::InfluxDB) -> RequestBuilde
     client.post(&url).header("content-type","application/octet-stream")
 }
 
-pub async fn write_stats(request: RequestBuilder, stats: Vec<report::Stats>) {
+pub fn write_stats(request: RequestBuilder, stats: Vec<report::Stats>) {
     let mut body = String::from("");
     for stat in stats {
         body = format!("{}stats,request={} latency={},status={} {}\n",
         body, stat.name, stat.latency, stat.status, DateTime::parse_from_rfc3339(&stat.timestamp).unwrap().timestamp_millis());
     }
 
-    match request.body(body).send().await {
+    match request.body(body).send() {
         Ok(_res) => (),
         Err(err) => error!("Error writing to influxdb: {}", err)
     };

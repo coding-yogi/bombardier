@@ -21,12 +21,18 @@ pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
             let websocket_clone = websocket_arc.clone();
 
             loop {
-                let raw_message = websocket_clone.lock().unwrap().as_mut().unwrap().read_message().unwrap();
+                let raw_message = websocket_clone.lock().unwrap().as_mut().unwrap().read_message().unwrap(); 
+                if raw_message.is_close() {
+                    info!("Distributor closed the connection");
+                    return;
+                }
+
                 if raw_message.is_text() {
+
                     let message: socket::Message = match serde_json::from_str(&raw_message.to_text().unwrap()) { //Convert to socket message
                         Ok(m) => m,
                         Err(err) => {
-                            error!("Error while deserializing tex to socket message: {}", err);
+                            error!("Error while deserializing text to socket message: {}", err);
                             return;
                         }
                     };

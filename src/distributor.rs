@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use log::{debug, info};
+use log::{debug, error, info};
 use tungstenite::{connect, Message};
 
 pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, requests: Vec<parser::Request>) -> Result<(), Box<dyn std::error::Error>> {
@@ -46,13 +46,24 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
         let report_clone = report_arc.clone();
         handles.push(thread::spawn(move || {
             loop {
-                let msg = socket.read_message().expect("Error reading message");
-                
+                let msg = match socket.read_message() {
+                    Ok(m) => m,
+                    Err(err) => {
+                        if !err.to_string().contains("Connection closed normally"){
+                            error!("Error occured while reading message: {}", err);
+                        }
+                        break;
+                    }
+                };
+
                 if msg.is_text() { //Handle only text messages
                     let text_msg = msg.to_text().unwrap();
                     debug!("Received from node: {}", text_msg);
 
-                    if text_msg == "done" { break; } //Exit once "done" message is received from node
+                    if text_msg == "done" { //Exit once "done" message is received from node
+                        socket.write_message(Message::Close(None)).unwrap();
+                        return; 
+                    } 
 
                     //Write stats to CSV 
                     //TODO: Improve performance

@@ -94,9 +94,9 @@ fn main()  {
                     Err(err) => error!("Bombarding failed : {}", err),
                     Ok(()) => ()
                 }   
-
-                info!("Bombarding Complete. Run report command to get details");
             }
+
+            info!("Bombarding Complete. Run report command to get details");
             
         },
         "report" => {
