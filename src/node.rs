@@ -17,11 +17,13 @@ pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
         std::thread::spawn(move || {
             
             let websocket = accept(stream.unwrap()).unwrap();
-            let websocket_arc = Arc::new(Mutex::new(Some(websocket)));
+            let websocket_client = socket::WebSocketClient { websocket };
+            let websocket_arc = Arc::new(Mutex::new(Some(websocket_client)));
             let websocket_clone = websocket_arc.clone();
 
             loop {
-                let raw_message = websocket_clone.lock().unwrap().as_mut().unwrap().read_message().unwrap(); 
+                //let raw_message = websocket_clone.lock().unwrap().as_mut().unwrap().read_message().unwrap(); 
+                let raw_message = websocket_clone.lock().unwrap().as_mut().unwrap().read().unwrap();
                 if raw_message.is_close() {
                     info!("Distributor closed the connection");
                     return;
@@ -29,7 +31,7 @@ pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
 
                 if raw_message.is_text() {
 
-                    let message: socket::Message = match serde_json::from_str(&raw_message.to_text().unwrap()) { //Convert to socket message
+                    let message: socket::BombardMessage = match serde_json::from_str(&raw_message.to_text().unwrap()) { //Convert to socket message
                         Ok(m) => m,
                         Err(err) => {
                             error!("Error while deserializing text to socket message: {}", err);

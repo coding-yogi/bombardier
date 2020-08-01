@@ -8,7 +8,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use log::{debug, error, info};
-use tungstenite::{connect, Message};
 
 pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, requests: Vec<parser::Request>) -> Result<(), Box<dyn std::error::Error>> {
 
@@ -20,7 +19,7 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
     info!("Creating report file: {}", &config.report_file);
     let report_file = report::create_file(&config.report_file)?;
 
-    let message = socket::Message {
+    let message = socket::BombardMessage {
         config: config.clone(),
         env_map: env_map,
         requests: requests
@@ -29,24 +28,24 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
     let mut handles = vec![];
     let report_arc = Arc::new(Mutex::new(report_file));
 
-    let mut sockets = vec![];
+    let mut sockets = HashMap::new();
     
     //Make all connection first and abort if any connection fails
     for node in &config.nodes {
         let node_address = format!("ws://{}/ws", &node);
-        let (socket, _) = connect(url::Url::parse(&node_address).unwrap())?;
+        let websocket = socket::connect(node_address.clone())?;
         info!("Connected to {} successfully", &node_address);
-        sockets.push(socket);
+        sockets.insert(node.clone(), socket::WebSocketClient { websocket });
     }
 
     //Loop through all connections
-    for mut socket in sockets {
-        socket.write_message(Message::Text(serde_json::to_string(&message).unwrap().into()))?; //Send data to node
+    for (node, mut socket) in sockets {
+        socket.write(serde_json::to_string(&message).unwrap()); //Send data to node
 
         let report_clone = report_arc.clone();
         handles.push(thread::spawn(move || {
             loop {
-                let msg = match socket.read_message() {
+                let msg = match socket.read() {
                     Ok(m) => m,
                     Err(err) => {
                         if !err.to_string().contains("Connection closed normally"){
@@ -61,7 +60,8 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
                     debug!("Received from node: {}", text_msg);
 
                     if text_msg == "done" { //Exit once "done" message is received from node
-                        socket.write_message(Message::Close(None)).unwrap();
+                        info!("Done signal received from node {}. Closing connection", node);
+                        socket.close();
                         return; 
                     } 
 

@@ -5,14 +5,15 @@ use crate::parser;
 use crate::report;
 use crate::influxdb;
 use crate::postprocessor;
+use crate::socket::WebSocketClient;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, mpsc};
 use std::{thread, time};
 use std::ops::Deref;
 
+use chrono::{Utc, DateTime};
 use log::{debug, error, warn, trace};
-use tungstenite::protocol::WebSocket;
 
 pub struct  Bombardier {
     pub config: cmd::ExecConfig,
@@ -22,7 +23,7 @@ pub struct  Bombardier {
 }
 
 impl Bombardier {
-    pub fn bombard(&self, ws_arc: Arc<Mutex<Option<WebSocket<std::net::TcpStream>>>>)
+    pub fn bombard(&self, ws_arc: Arc<Mutex<Option<WebSocketClient<std::net::TcpStream>>>>)
     -> Result<(), Box<dyn std::error::Error + 'static>> {
 
         let config = self.config.clone();
@@ -33,10 +34,6 @@ impl Bombardier {
         let think_time = config.think_time;
         let continue_on_error = config.continue_on_error;
         let is_distributed = config.distributed;
-        let write_to_influx = config.influxdb.url.starts_with("http");
-
-        let start_time = time::Instant::now();
-        let execution_time = config.execution_time;
     
         let client_arc = Arc::new(http::get_sync_client(&config));
         let requests = Arc::new(self.requests.clone());
@@ -49,11 +46,12 @@ impl Bombardier {
         let csv_report_file = report::create_file(&config.report_file)?;
         
         let (csv_tx, csv_recv_handle) = init_csv_chan(csv_report_file); //Start CSV channel
-        let (ws_tx, ws_recv_handle) = init_ws_chan(ws_arc); //Start websockets channel
-
-        let (influx_tx, influx_recv_handle) =  init_influxdb_chan(&config.influxdb); //Start influx DB channel
-
+        let (report_tx, report_recv_handle) = init_report_chan(ws_arc, &config.influxdb); //Start reporting channel
+        
         let mut handles = vec![];
+
+        let start_time = Utc::now();
+        let execution_time = config.execution_time;
 
         for thread_cnt in 0..no_of_threads {
             let requests_clone = requests.clone();
@@ -63,8 +61,7 @@ impl Bombardier {
             let data_counter_clone = data_counter_arc.clone();
 
             let csv_tx_clone = csv_tx.clone();
-            let ws_tx_clone = ws_tx.clone();
-            let influx_tx_clone = influx_tx.clone();
+            let report_tx_clone = report_tx.clone();
             
             let mut thread_iteration = 0;
 
@@ -96,7 +93,7 @@ impl Bombardier {
                         match http::execute(&client_clone, processed_request) {
                             Ok((response, latency)) => {
                                 let new_stats = report::Stats::new(&request.name, response.status().as_u16(), latency);
-                                
+
                                 if !is_distributed {
                                     csv_tx_clone.send(new_stats.clone()).unwrap(); //send stats to csv channel
                                 }
@@ -121,20 +118,10 @@ impl Bombardier {
                                 }
                             }
                         }
-
                         thread::sleep(time::Duration::from_millis(think_time)); //wait per request delay
-                    }
-
-                    if is_distributed {
-                        ws_tx_clone.send(vec_stats.clone()).unwrap(); //Send data to distributor
-                    }
-
-                    if write_to_influx {
-                        influx_tx_clone.send(vec_stats).unwrap(); //send data to influx  channel    
-                    }       
+                    };
+                    report_tx_clone.send(vec_stats.clone()).unwrap(); //Send data to distributor    
                 }
-
-                thread::sleep(time::Duration::from_millis(500)); //Tempfix for influxdb tasks to finish
             });
 
             handles.push(handle);
@@ -146,12 +133,10 @@ impl Bombardier {
         }
 
         drop(csv_tx);
-        drop(ws_tx);
-        drop(influx_tx);
-
+        drop(report_tx);
+       
         csv_recv_handle.join().unwrap();
-        ws_recv_handle.join().unwrap();
-        influx_recv_handle.join().unwrap();
+        report_recv_handle.join().unwrap();
 
         Ok(())
     }
@@ -164,8 +149,10 @@ fn get_data_map<'a>(vec_data_map: &'a Vec<HashMap<String, String>>, counter: &mu
     &data_map
 }
 
-fn is_execution_time_over(start_time: time::Instant, duration: &u64) -> bool {
-    start_time.elapsed().as_secs() > *duration
+fn is_execution_time_over(start_time: DateTime<Utc>, duration: &u64) -> bool {
+    //start_time.elapsed().as_secs() > *duration
+
+    (Utc::now().timestamp() - start_time.timestamp()) as u64 > *duration
 }
 
 fn is_failed_request(status: u16) -> bool {
@@ -192,13 +179,7 @@ fn init_csv_chan(file: std::fs::File) -> (mpsc::Sender<report::Stats>, thread::J
         loop {
             match rx.recv() {
                 Ok(stats) => report::write_stats_to_csv(&mut file_arc.lock().unwrap(), &format!("{}", &stats)),
-                Err(err) => {
-                    if err.to_string().contains("receiving on a closed channel") {
-                        break;
-                    } else {
-                        error!("Error occured on receiver: {}", err);
-                    }
-                }
+                Err(_) => break //Channel has been closed
             }
         }
     });
@@ -206,70 +187,40 @@ fn init_csv_chan(file: std::fs::File) -> (mpsc::Sender<report::Stats>, thread::J
     (tx, handle)
 }
 
-fn init_influxdb_chan(influxdb: &cmd::InfluxDB) -> (mpsc::Sender<Vec<report::Stats>>, thread::JoinHandle<()>) {
-    let influx_req = influxdb::build_request(&http::get_default_sync_client(), influxdb);
-    let influx_arc = Arc::new(Mutex::new(influx_req));
-    let (tx, rx): (mpsc::Sender<Vec<report::Stats>>, mpsc::Receiver<Vec<report::Stats>>) = mpsc::channel();
-    
-    let handle = thread::spawn(move || {
-        loop {
-            match rx.recv() {
-                Ok(stats) => {
-                    let builder_clone = influx_arc.lock().unwrap().deref().try_clone().unwrap();
-                    influxdb::write_stats(builder_clone, stats.clone());
-                }
-                Err(err) => {
-                    if err.to_string().contains("receiving on a closed channel") {
-                        break;
-                    } else {
-                        error!("Error occured on receiver: {}", err);
-                    }
-                }
-            }
-        }
-    });
-
-    (tx, handle)
-}
-
-fn init_ws_chan(websocket: Arc<Mutex<Option<WebSocket<std::net::TcpStream>>>>) 
+fn init_report_chan(ws_arc: Arc<Mutex<Option<WebSocketClient<std::net::TcpStream>>>>, influxdb: &cmd::InfluxDB) 
 -> (mpsc::Sender<Vec<report::Stats>>, thread::JoinHandle<()>) {
+
+    let influxdb_client = influxdb::InfluxDBClient {client: http::get_default_sync_client(), influxdb: influxdb.clone()};
+    let influx_arc = Arc::new(Mutex::new(influxdb_client));
+
     let (tx, rx): (mpsc::Sender<Vec<report::Stats>>, mpsc::Receiver<Vec<report::Stats>>) = mpsc::channel();
+
+    let is_distributed = ws_arc.lock().unwrap().is_some(); //socket must be some if distributed
+    let write_to_influx = influxdb.url.starts_with("http") && influxdb.dbname.len() > 0;
 
     let handle = thread::spawn(move || { //Send stats to distributor
+        let mut websocket_mg = ws_arc.lock().unwrap();
+
         loop {
             match rx.recv() {
                 Ok(stats) => {
-                    let message = tungstenite::Message::from(serde_json::to_string(&stats).unwrap());
-                    if write_to_websocket(websocket.clone(), message).is_err() {
-                        break;
-                    };
-                },
-                Err(err) => {
-                    if err.to_string().contains("receiving on a closed channel") {
-                        write_to_websocket(websocket.clone(), tungstenite::Message::from("done")).unwrap();
-                        break;
-                    } else {
-                        error!("Error occured on receiver: {}", err);
+                    if write_to_influx {
+                        influx_arc.lock().unwrap().write_stats(stats.clone()); //write to influx
                     }
+                      
+                    if is_distributed {
+                        websocket_mg.as_mut().unwrap().write(serde_json::to_string(&stats).unwrap()); //write to websocket
+                    }
+                },
+                Err(_) => {
+                    if is_distributed { //If distributed, channel has been closed explicitly, send done to distributor
+                        websocket_mg.as_mut().unwrap().write(String::from("done"));
+                    }               
+                    break;
                 }
             }
         }
     });
 
     (tx, handle)
-}
-
-fn write_to_websocket(websocket: Arc<Mutex<Option<WebSocket<std::net::TcpStream>>>>, message: tungstenite::Message) -> Result<(), Box<dyn std::error::Error + 'static>> {
-    let mut socket = websocket.lock().unwrap();
-    if socket.is_none() {
-        return Err("socket is none".into())
-    }
-
-    match socket.as_mut().unwrap().write_message(message) {
-        Err(_) => error!("Unable to send stats to distributor"),
-        Ok(_) => ()
-    }
-
-    Ok(())
 }

@@ -9,7 +9,7 @@ Below is the explanation of every config parameter mentioned in the config json
 |data_file         |Path of the data csv file to be used during execution                                   |Yes        |           |
 |thread_count      |No. of concurrent threads/users                                                         |Yes        |1          |
 |iterations        |No. of iterations every thread. Will supersede execution time if both are provided      |Yes        |           | 
-|thread_delay      |Time delay in ms between two consecutive requests on same thread                        |Yes        |1 ms       |
+|think_time        |Time delay in ms between two consecutive requests on same thread                        |Yes        |1 ms       |
 |execution_time    |Execution time in secs                                                                  |Yes        |           |
 |rampup_time       |Ramp up time in secs for starting all the threads                                       |Yes        |1 sec      |
 |report_file       |Path to CSV report file                                                                 |Yes        |report.csv |
