@@ -8,12 +8,14 @@ use crate::postprocessor;
 use crate::socket::WebSocketClient;
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::Arc;
 use std::{thread, time};
 use std::ops::Deref;
 
+use crossbeam::crossbeam_channel as channel;
 use chrono::{Utc, DateTime};
 use log::{debug, error, warn, trace};
+use parking_lot::FairMutex as Mutex;
 
 pub struct  Bombardier {
     pub config: cmd::ExecConfig,
@@ -80,7 +82,7 @@ impl Bombardier {
 
                     //get data set
                     if data_count > 0 {
-                        let data_map = get_data_map(&vec_data_map_clone, &mut *data_counter_clone.lock().unwrap(), data_count);
+                        let data_map = get_data_map(&vec_data_map_clone, &mut *data_counter_clone.lock(), data_count);
                         env_map_clone.extend(data_map.into_iter().map(|(k, v)| (k.clone(), v.clone())));
                         debug!("data used for {}-{} : {:?}", thread_cnt, thread_iteration, data_map);
                     }
@@ -150,8 +152,6 @@ fn get_data_map<'a>(vec_data_map: &'a Vec<HashMap<String, String>>, counter: &mu
 }
 
 fn is_execution_time_over(start_time: DateTime<Utc>, duration: &u64) -> bool {
-    //start_time.elapsed().as_secs() > *duration
-
     (Utc::now().timestamp() - start_time.timestamp()) as u64 > *duration
 }
 
@@ -172,13 +172,13 @@ fn preprocess(request: &parser::Request, env_map: &HashMap<String, String>) -> p
     }
 }
 
-fn init_csv_chan(file: std::fs::File) -> (mpsc::Sender<report::Stats>, thread::JoinHandle<()>) {
-    let (tx, rx): (mpsc::Sender<report::Stats>, mpsc::Receiver<report::Stats>) = mpsc::channel();
+fn init_csv_chan(file: std::fs::File) -> (channel::Sender<report::Stats>, thread::JoinHandle<()>) {
+    let (tx, rx): (channel::Sender<report::Stats>, channel::Receiver<report::Stats>) = channel::unbounded();
     let file_arc = Arc::new(Mutex::new(file));
     let handle = thread::spawn(move || {
         loop {
             match rx.recv() {
-                Ok(stats) => report::write_stats_to_csv(&mut file_arc.lock().unwrap(), &format!("{}", &stats)),
+                Ok(stats) => report::write_stats_to_csv(&mut file_arc.lock(), &format!("{}", &stats)),
                 Err(_) => break //Channel has been closed
             }
         }
@@ -188,24 +188,24 @@ fn init_csv_chan(file: std::fs::File) -> (mpsc::Sender<report::Stats>, thread::J
 }
 
 fn init_report_chan(ws_arc: Arc<Mutex<Option<WebSocketClient<std::net::TcpStream>>>>, influxdb: &cmd::InfluxDB) 
--> (mpsc::Sender<Vec<report::Stats>>, thread::JoinHandle<()>) {
+-> (channel::Sender<Vec<report::Stats>>, thread::JoinHandle<()>) {
 
     let influxdb_client = influxdb::InfluxDBClient {client: http::get_default_sync_client(), influxdb: influxdb.clone()};
     let influx_arc = Arc::new(Mutex::new(influxdb_client));
 
-    let (tx, rx): (mpsc::Sender<Vec<report::Stats>>, mpsc::Receiver<Vec<report::Stats>>) = mpsc::channel();
+    let (tx, rx): (channel::Sender<Vec<report::Stats>>, channel::Receiver<Vec<report::Stats>>) = channel::unbounded();
 
-    let is_distributed = ws_arc.lock().unwrap().is_some(); //socket must be some if distributed
+    let is_distributed = ws_arc.lock().is_some(); //socket must be some if distributed
     let write_to_influx = influxdb.url.starts_with("http") && influxdb.dbname.len() > 0;
 
     let handle = thread::spawn(move || { //Send stats to distributor
-        let mut websocket_mg = ws_arc.lock().unwrap();
+        let mut websocket_mg = ws_arc.lock();
 
         loop {
             match rx.recv() {
                 Ok(stats) => {
                     if write_to_influx {
-                        influx_arc.lock().unwrap().write_stats(stats.clone()); //write to influx
+                        influx_arc.lock().write_stats(stats.clone()); //write to influx
                     }
                       
                     if is_distributed {

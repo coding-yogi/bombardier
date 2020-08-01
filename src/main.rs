@@ -12,7 +12,9 @@ mod report;
 mod socket;
 
 use log::{info, error};
-use std::sync::{Arc, Mutex};
+use parking_lot::FairMutex as Mutex;
+use std::sync::Arc;
+
 
 fn main()  {
 

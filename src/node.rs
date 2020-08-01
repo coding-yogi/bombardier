@@ -7,7 +7,8 @@ use std::net::TcpListener;
 use log::{error, info};
 use tungstenite::accept;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use parking_lot::FairMutex as Mutex;
 
 pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let host = "127.0.0.1";
@@ -23,14 +24,13 @@ pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
 
             loop {
                 //let raw_message = websocket_clone.lock().unwrap().as_mut().unwrap().read_message().unwrap(); 
-                let raw_message = websocket_clone.lock().unwrap().as_mut().unwrap().read().unwrap();
+                let raw_message = websocket_clone.lock().as_mut().unwrap().read().unwrap();
                 if raw_message.is_close() {
                     info!("Distributor closed the connection");
                     return;
                 }
 
                 if raw_message.is_text() {
-
                     let message: socket::BombardMessage = match serde_json::from_str(&raw_message.to_text().unwrap()) { //Convert to socket message
                         Ok(m) => m,
                         Err(err) => {
@@ -58,6 +58,7 @@ pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
 
                     //Bombard!!
                     let websocket_clone2 = websocket_arc.clone();
+                    info!("Bombarding !!!");
                     match bombardier.bombard(websocket_clone2) {
                         Err(err) => error!("Bombarding failed : {}", err),
                         Ok(()) => ()
