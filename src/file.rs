@@ -10,6 +10,10 @@ pub fn create_file(path: &str) -> Result<fs::File, Error> {
     fs::File::create(path)
 }
 
+pub fn get_file(path: &str) -> Result<fs::File, Error> {
+    fs::File::open(path)
+}
+
 pub fn find_and_replace(mut content: String, map: &HashMap<String, String>) -> String {
     if content.contains("{{") { //Avoid unnecessary looping, might be tricked by json but would avoid most
         for (k, v) in map {

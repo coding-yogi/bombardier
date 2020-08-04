@@ -111,13 +111,21 @@ fn main()  {
             }; 
 
             info!("Generating report");
-            match report::display(config.report_file) {
+            let reporter = match report::get_reporter(&config.report_file) {
                 Err(err) => {
-                    error!("Error occured while generating report : {}", err);
+                    error!("Error while getting report file : {}", err);
+                    return;
+                },
+                Ok(r) => r
+            }; 
+
+            match reporter.display() {
+                Err(err) => {
+                    error!("Error while displaying reports : {}", err);
                     return;
                 },
                 Ok(()) => ()
-            }; 
+            }
         },
         "node" => {
             info!("Starting bombardier as a node");

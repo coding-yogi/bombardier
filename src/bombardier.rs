@@ -7,15 +7,14 @@ use crate::influxdb;
 use crate::postprocessor;
 use crate::socket::WebSocketClient;
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::{thread, time};
-use std::ops::Deref;
-
 use crossbeam::crossbeam_channel as channel;
 use chrono::{Utc, DateTime};
 use log::{debug, error, warn, trace};
 use parking_lot::FairMutex as Mutex;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::{thread, time};
+use std::ops::Deref;
 
 pub struct  Bombardier {
     pub config: cmd::ExecConfig,
@@ -45,9 +44,10 @@ impl Bombardier {
         let data_counter: usize = 0;
         let data_counter_arc = Arc::new(Mutex::new(data_counter));
 
-        let csv_report_file = report::create_file(&config.report_file)?;
+        //let csv_report_file = report::create_file(&config.report_file)?;
+        let reporter = report::new(&config.report_file)?;
         
-        let (csv_tx, csv_recv_handle) = init_csv_chan(csv_report_file); //Start CSV channel
+        let (csv_tx, csv_recv_handle) = init_csv_chan(reporter); //Start CSV channel
         let (report_tx, report_recv_handle) = init_report_chan(ws_arc, &config.influxdb); //Start reporting channel
         
         let mut handles = vec![];
@@ -172,13 +172,13 @@ fn preprocess(request: &parser::Request, env_map: &HashMap<String, String>) -> p
     }
 }
 
-fn init_csv_chan(file: std::fs::File) -> (channel::Sender<report::Stats>, thread::JoinHandle<()>) {
+fn init_csv_chan(reporter: report::Reporter) -> (channel::Sender<report::Stats>, thread::JoinHandle<()>) {
     let (tx, rx): (channel::Sender<report::Stats>, channel::Receiver<report::Stats>) = channel::unbounded();
-    let file_arc = Arc::new(Mutex::new(file));
+    let reporter_arc = Arc::new(Mutex::new(reporter));
     let handle = thread::spawn(move || {
         loop {
             match rx.recv() {
-                Ok(stats) => report::write_stats_to_csv(&mut file_arc.lock(), &format!("{}", &stats)),
+                Ok(stats) => reporter_arc.lock().write_stats_to_csv(&format!("{}", &stats)),
                 Err(_) => break //Channel has been closed
             }
         }
@@ -203,11 +203,11 @@ fn init_report_chan(ws_arc: Arc<Mutex<Option<WebSocketClient<std::net::TcpStream
 
         loop {
             match rx.recv() {
-                Ok(stats) => {
+                Ok(stats) => {   
                     if write_to_influx {
                         influx_arc.lock().write_stats(stats.clone()); //write to influx
                     }
-                      
+    
                     if is_distributed {
                         websocket_mg.as_mut().unwrap().write(serde_json::to_string(&stats).unwrap()); //write to websocket
                     }
