@@ -1,11 +1,11 @@
 use crate::file;
-use std::process;
-use std::collections::HashMap;
 
 use log::{error, warn};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 use serde_json::{Map, Value};
+use std::collections::HashMap;
+use std::process;
 
 #[derive(Deserialize, Debug)]
 pub struct Root {
