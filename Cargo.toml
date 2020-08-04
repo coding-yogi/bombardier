@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 ajson = "0.2.3"
-async-std = "1.6.2"
+#async-std = "1.6.2"
 clap = "2.33.1"
 chrono = "0.4.13"
 crossbeam = "0.7.3"
