@@ -103,7 +103,7 @@ impl Bombardier {
                                 vec_stats.push(new_stats); //Add stats to vector
 
                                 if !continue_on_error && is_failed_request(response.status().as_u16()) { //check status
-                                    warn!("Request {} failed. Skipping rest of the iteration", &request.name);
+                                    warn!("Request {} failed with status {}. Skipping rest of the iteration", &request.name, response.status());
                                     break;
                                 }
 
