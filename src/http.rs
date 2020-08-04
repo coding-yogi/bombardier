@@ -1,13 +1,12 @@
 use crate::cmd;
 use crate::parser;
 
-use std::time;
-use std::str::FromStr;
-use std::collections::HashMap;
-
 use log::{debug};
 use reqwest::{blocking::{Client, Response}, Method};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::time;
 
 pub fn get_default_sync_client() -> Client {
     Client::builder()

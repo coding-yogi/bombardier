@@ -1,9 +1,5 @@
 use crate::parser;
 
-use std::collections::HashMap;
-use std::error::Error;
-use std::fmt;
-
 use ajson;
 use libxml::parser::Parser as xml_parser;
 use libxml::xpath::Context;
@@ -11,6 +7,9 @@ use log::{debug, error, warn};
 use regex::Regex;
 use reqwest::{blocking::Response, header::{HeaderMap, CONTENT_TYPE}};
 use serde_json::{Map, Value};
+use std::collections::HashMap;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Debug)]
 enum ProcessorType {
