@@ -25,7 +25,7 @@ pub struct  Bombardier {
 
 impl Bombardier {
     pub fn bombard(&self, ws_arc: Arc<Mutex<Option<WebSocketClient<std::net::TcpStream>>>>)
-    -> Result<(), Box<dyn std::error::Error + 'static>> {
+    -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let config = self.config.clone();
 
@@ -36,7 +36,7 @@ impl Bombardier {
         let continue_on_error = config.continue_on_error;
         let is_distributed = config.distributed;
     
-        let client_arc = Arc::new(http::get_sync_client(&config));
+        let client_arc = Arc::new(http::get_sync_client(&config)?);
         let requests = Arc::new(self.requests.clone());
        
         let data_count = self.vec_data_map.len();
@@ -44,7 +44,6 @@ impl Bombardier {
         let data_counter: usize = 0;
         let data_counter_arc = Arc::new(Mutex::new(data_counter));
 
-        //let csv_report_file = report::create_file(&config.report_file)?;
         let reporter = report::new(&config.report_file)?;
         
         let (csv_tx, csv_recv_handle) = init_csv_chan(reporter); //Start CSV channel

@@ -41,6 +41,13 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
     "report_file": "report.csv",
     "continue_on_error": false,
     "handle_cookies": false,
+    "ssl": {
+        "ignore_ssl" : false,
+        "accept_invalid_hostnames": false,
+        "certificate": "./ca_cert.pem",
+        "keystore": "./keystore.p12",
+        "keystore_password": "P@$$w0rd123"
+    },
     "influxdb" : {
         "url": "http://localhost:8086",
         "username": "",
