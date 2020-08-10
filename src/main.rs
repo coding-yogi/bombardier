@@ -94,11 +94,11 @@ fn main()  {
 
                 match bombardier.bombard(Arc::new(Mutex::new(None))) {
                     Err(err) => error!("Bombarding failed : {}", err),
-                    Ok(()) => ()
+                    Ok(()) => info!("Bombarding Complete. Run report command to get details")
                 }   
             }
 
-            info!("Bombarding Complete. Run report command to get details");
+            
             
         },
         "report" => {

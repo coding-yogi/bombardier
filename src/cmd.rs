@@ -51,7 +51,10 @@ pub struct ExecConfig {
     pub nodes: Vec<String>,
 
     #[serde(default)]
-    pub influxdb: InfluxDB
+    pub influxdb: InfluxDB,
+
+    #[serde(default)]
+    pub ssl: Ssl
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
@@ -62,9 +65,29 @@ pub struct InfluxDB {
     pub dbname: String,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct Ssl {
+    #[serde(default)]
+    pub ignore_ssl: bool,
+
+    #[serde(default)]
+    pub accept_invalid_hostnames: bool,
+
+    #[serde(deserialize_with = "check_der_or_pem")]
+    pub certificate: String,
+
+    #[serde(deserialize_with = "check_p12_or_pfx")]
+    pub keystore: String,
+    pub keystore_password: String,
+}
+
 const CONFIG_ARG_NAME: &str = "config json file";
 const PORT_ARG_NAME: &str = "websocket port";
 const JSON_EXT: &str = ".json";
+pub const DER_EXT: &str = ".der";
+pub const PEM_EXT: &str = ".pem";
+pub const P12_EXT: &str = ".p12";
+pub const PFX_EXT: &str = ".pfx";
 const DEFAULT_REPORT_FILE: &str = "report.csv";
 
 fn default_report_file() -> String {
@@ -146,8 +169,7 @@ pub fn get_port(subcommand_args: Option<&ArgMatches<>>) -> i32 {
 }
 
 fn check_non_zero <'de, D>(deserializer: D) -> Result<u64, D::Error> 
-where D: Deserializer<'de> {
-    
+where D: Deserializer<'de> {    
     let val = u64::deserialize(deserializer)?;
     if val == 0 {
         return Err(Error::custom("Value cannot be zero"))
@@ -156,9 +178,28 @@ where D: Deserializer<'de> {
     Ok(val)
 }
 
+fn check_der_or_pem <'de, D>(deserializer: D) -> Result<String, D::Error> 
+where D: Deserializer<'de> {   
+    let val = String::deserialize(deserializer)?;
+    if val != "" && !(val.ends_with(DER_EXT) || val.ends_with(PEM_EXT)){
+        return Err(Error::custom("File should be a .pem or .der file"))
+    }
+
+    Ok(val)
+}
+
+fn check_p12_or_pfx <'de, D>(deserializer: D) -> Result<String, D::Error> 
+where D: Deserializer<'de> {   
+    let val = String::deserialize(deserializer)?;
+    if val != "" && !(val.ends_with(P12_EXT) || val.ends_with(PFX_EXT)){
+        return Err(Error::custom("File should be a .p12 or .pfx file"))
+    }
+
+    Ok(val)
+}
+
 fn check_json_file <'de, D>(deserializer: D) -> Result<String, D::Error> 
-where D: Deserializer<'de> {
-    
+where D: Deserializer<'de> { 
     let val = String::deserialize(deserializer)?;
     if !val.ends_with(JSON_EXT)  {
         return Err(Error::custom("File should be a .json file"))

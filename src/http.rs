@@ -1,8 +1,9 @@
 use crate::cmd;
+use crate::file;
 use crate::parser;
 
-use log::{debug};
-use reqwest::{blocking::{Client, Response}, Method};
+use log::{debug, info, warn};
+use reqwest::{blocking::{Client, Response}, Certificate, Identity, Method};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -15,17 +16,60 @@ pub fn get_default_sync_client() -> Client {
         .expect("Unable to create default sync client")
 } 
 
-pub fn get_sync_client(config: &cmd::ExecConfig)  -> Client {
-    let mut client_builder = Client::builder().user_agent("bombardier");
+fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn std::error::Error + Send + Sync>> {
+    let cert = file::read_file(path)?;
+    if path.to_lowercase().ends_with(cmd::DER_EXT) {
+        return Ok(Certificate::from_der(&cert)?)
+    } else if path.to_lowercase().ends_with(cmd::PEM_EXT) {
+        return Ok(Certificate::from_pem(&cert)?)
+    }
+
+    Err("Certificate should be in .pem or .der format".into())
+}
+
+fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn std::error::Error + Send + Sync>> {
+    let ks = file::read_file(path)?;
+    if path.to_lowercase().ends_with(cmd::P12_EXT) || path.to_lowercase().ends_with(cmd::PFX_EXT) {
+        return Ok(Identity::from_pkcs12_der(&ks, password)?)
+    }
+
+    Err("Keystore should be in .p12 or .pfx format".into())
+}
+
+pub fn get_sync_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn std::error::Error + Send + Sync>> {
+    let mut client_builder = Client::builder()
+        .user_agent("bombardier")
+        .use_native_tls();
 
     if config.handle_cookies {
+        info!("Enabling cookie store");
         client_builder = client_builder.cookie_store(true);
     }
 
-    let client = client_builder.build()
-        .expect("Unable to create client");
+    if config.ssl.ignore_ssl {
+        warn!("SSL validation has been disabled, this is dangerous as all invalid certs would be accepted");
+        client_builder = client_builder.danger_accept_invalid_certs(true);
+    } else {
+        if config.ssl.accept_invalid_hostnames {
+            warn!("SSL hostname validation has been disabled, this is dangerous as all certs with non matching hostnames would be accepted");
+            client_builder = client_builder.danger_accept_invalid_hostnames(true);
+        }
+    
+        if config.ssl.certificate != "" {
+            let cert = get_certificate(&config.ssl.certificate)?;
+            info!("Adding new trusted certificate {}", &config.ssl.certificate);
+            client_builder = client_builder.add_root_certificate(cert);
+        }
+    }
 
-    client
+    if config.ssl.keystore != "" {
+        let ks = get_identity(&config.ssl.keystore, &config.ssl.keystore_password)?;
+        info!("Adding new keystore {}", &config.ssl.keystore);
+        client_builder = client_builder.identity(ks);
+    }
+    
+
+    Ok(client_builder.build()?)
 }
 
 pub fn execute(client: &Client, request: parser::Request) -> Result<(Response, u128), Box<dyn std::error::Error + Send + Sync>>  {
