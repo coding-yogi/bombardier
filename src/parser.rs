@@ -70,7 +70,13 @@ pub struct Auth {
     pub auth_type: String,
 
     #[serde(default)]
-    pub basic: Vec<KeyValue>,
+    pub basic: Vec<AuthKeyValue>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct AuthKeyValue {
+    pub key: String,
+    pub value: Value, 
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
