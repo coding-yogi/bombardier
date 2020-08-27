@@ -86,9 +86,11 @@ pub fn execute(client: &Client, request: parser::Request) -> Result<(Response, u
 
     let auth = &details.auth;
     if auth.auth_type == "basic" {
-        let username = auth.basic.iter().find(|kv| kv.key == "username").unwrap().value.clone();
-        let password = auth.basic.iter().find(|kv| kv.key == "password").unwrap().value.clone();
-        builder = builder.basic_auth(username, Some(password));
+        let username = auth.basic.iter().find(|kv| kv.key == "username").unwrap().value.as_str();
+        let password = auth.basic.iter().find(|kv| kv.key == "password").unwrap().value.as_str();
+        if let Some(username) = username {
+            builder = builder.basic_auth(username, password);
+        }
     }
 
     match details.body.mode.as_ref() {
