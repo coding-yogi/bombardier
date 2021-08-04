@@ -7,7 +7,7 @@ use crate::influxdb;
 use crate::postprocessor;
 use crate::socket::WebSocketClient;
 
-use crossbeam::crossbeam_channel as channel;
+use crossbeam::channel;
 use chrono::{Utc, DateTime};
 use log::{debug, error, warn, trace};
 use parking_lot::FairMutex as Mutex;

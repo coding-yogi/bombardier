@@ -2,6 +2,7 @@ use crate::cmd;
 use crate::parser;
 
 use std::collections::HashMap;
+use std::net::TcpStream;
 
 use log::{error};
 use serde::{Serialize, Deserialize};
@@ -40,7 +41,7 @@ impl <T> WebSocketClient<T> where T: std::io::Read + std::io::Write {
     }
 }
 
-pub fn connect(url: String) -> Result<WebSocket<tungstenite::stream::Stream<std::net::TcpStream, native_tls::TlsStream<std::net::TcpStream>>>, Box<dyn std::error::Error>> {
+pub fn connect(url: String) -> Result<WebSocket<TcpStream>, Box<dyn std::error::Error>> {
      match tconnect(url::Url::parse(&url).unwrap()) {
          Ok((ws, _)) => Ok(ws),
          Err(err) => Err(format!("Connection failed: {}", err).into())
