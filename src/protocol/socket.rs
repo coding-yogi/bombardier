@@ -1,20 +1,24 @@
-use crate::cmd;
-use crate::parser;
 
-use std::collections::HashMap;
-use std::net::TcpStream;
-
-use log::{error};
+use log::*;
 use serde::{Serialize, Deserialize};
-use tungstenite::protocol::{WebSocket};
-use tungstenite::connect as tconnect;
-use tungstenite::Message;
+use tungstenite::{
+    protocol::WebSocket,
+    connect as tconnect,
+    Message,
+};
+
+use std::{
+    collections::HashMap, 
+    net::TcpStream
+};
+
+use crate::{cmd, model, report::stats};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct BombardMessage {
     pub config: cmd::ExecConfig,
     pub env_map: HashMap<String, String>,
-    pub requests: Vec<parser::Request>
+    pub requests: Vec<model::Request>
 }
 
 pub struct WebSocketClient<T> {
@@ -38,6 +42,12 @@ impl <T> WebSocketClient<T> where T: std::io::Read + std::io::Write {
             Ok(_) => (),
             Err(err) => error!("Error occured while sending close message to socket: {}", err)
         }
+    }
+}
+
+impl <T> stats::StatsWriter for WebSocketClient<T> where T: std::io::Read + std::io::Write {
+    fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
+        self.write(serde_json::to_string(&stats).unwrap()) //check why json and not comma separated
     }
 }
 

@@ -1,19 +1,25 @@
-use crate::parser;
-
-use ajson;
+use jsonpath_lib as jsonpath;
 use libxml::parser::Parser as xml_parser;
 use libxml::xpath::Context;
 use log::{debug, error, warn};
 use regex::Regex;
-use reqwest::{blocking::Response, header::{HeaderMap, CONTENT_TYPE}};
-use serde_json::{Map, Value};
-use std::collections::HashMap;
-use std::error::Error;
-use std::fmt;
+use reqwest::{
+    blocking::Response, 
+    header::{HeaderMap, CONTENT_TYPE}
+};
+use serde_yaml::{Mapping, Value};
+
+use std::{
+    collections::HashMap,
+    error::Error,
+    fmt,
+};
+
+use crate::model;
 
 #[derive(Debug)]
 enum ProcessorType {
-    GJsonPath,
+    JsonPath,
     XmlPath,
     RegEx
 }
@@ -26,13 +32,12 @@ impl fmt::Display for ProcessorType {
 
 impl ProcessorType {
     fn extractor(&self, k: &str, v: &Value, body: &str) -> Result<String, Box<dyn Error + 'static>> {
-        let param_value: String;
         let value = v.as_str().ok_or(format!("Value for extractor {} must be a string", k))?;
         debug!("Fetching value for {}: {}", self.to_string(), value);
         
         use ProcessorType::*;
-        param_value = match *self {
-            GJsonPath => execute_gjson_path(value, body)?,
+        let param_value = match *self {
+            JsonPath => execute_gjson_path(value, body)?,
             XmlPath =>  execute_xpath(value, body)?,
             RegEx => execute_regex(value, body)?
         };
@@ -49,8 +54,19 @@ fn execute_regex(pattern: &str, body: &str) -> Result<String, Box<dyn Error + 's
 }
 
 fn execute_gjson_path(jsonpath: &str, body: &str) -> Result<String, Box<dyn Error + 'static>> {
-    let val_from_jsonpath = ajson::get(body, jsonpath).ok_or(format!("No value found for path {}", jsonpath))?;
-    let val_as_str = val_from_jsonpath.as_str();
+    let json: serde_json::Value = serde_json::from_str(body).unwrap();
+    let mut selector = jsonpath::selector(&json);
+
+    let val_from_jsonpath = match selector(jsonpath) {
+        Ok(val) => val,
+        Err(err) => return Err(Box::new(err))
+    };
+
+    if val_from_jsonpath.is_empty() {
+        return Err(format!("unable to retrieve data using jsonpath {}", jsonpath).into());
+    }
+
+    let val_as_str = val_from_jsonpath[0].as_str().unwrap();
     Ok(String::from(val_as_str))
 }
 
@@ -77,24 +93,25 @@ fn execute_xpath(xpath: &str, body: &str) -> Result<String, Box<dyn Error + 'sta
     Ok(nodes[0].get_content())
 }
 
-fn extract(processor_type: ProcessorType, body: &str, map: &Map<String, Value>, env_map: &mut HashMap<String, String>)
+fn extract(processor_type: ProcessorType, body: &str, map: &Mapping, env_map: &mut HashMap<String, String>)
  -> Result<(), Box<dyn Error + 'static>> {
     for (k, v) in map {
-        let param_value = processor_type.extractor(k,v,body)?;
-        env_map.insert(k.to_string(), param_value);
+        let k_as_str = k.as_str().unwrap();
+        let param_value = processor_type.extractor(k_as_str,v,body)?;
+        env_map.insert(k_as_str.to_string(), param_value);
     }
 
     Ok(())
 }
 
-pub fn process(response: Response, request: &parser::Request, env_map: &mut HashMap<String, String>) -> Result<(), Box<dyn Error + 'static>> {
+pub fn process(response: Response, request: &model::Request, env_map: &mut HashMap<String, String>) -> Result<(), Box<dyn Error + 'static>> {
     let extractor = &request.extractor;
     let is_json_response = is_json_response(&response);
     let is_xml_response = !is_json_response && is_xml_response(&response);
     let body = get_response_as_string(response);
 
     if is_json_response { //Check if response is json
-        extract(ProcessorType::GJsonPath, &body, &extractor.gjson_path, env_map)?; 
+        extract(ProcessorType::JsonPath, &body, &extractor.gjson_path, env_map)?; 
     } else if is_xml_response { //Check if response is xml / html
         extract(ProcessorType::XmlPath, &body, &extractor.xpath, env_map)?; 
     } 

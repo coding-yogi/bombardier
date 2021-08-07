@@ -1,28 +1,43 @@
-use crate::bombardier;
-use crate::parser;
-use crate::socket;
+use log::*;
+use tungstenite::{accept, Message};
 
-use log::{error, info};
-use parking_lot::FairMutex as Mutex;
-use std::net::TcpListener;
-use std::sync::Arc;
-use tungstenite::accept;
-use parking_lot::lock_api;
+use std::{
+    sync::{Arc, Mutex},
+    net::TcpListener,
+};
+
+use crate::{
+    bombardier,
+    parser,
+    report::stats,
+    socket,
+};
 
 pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let host = "127.0.0.1";
     let server = TcpListener::bind(format!("{}:{}", host, port))?;
 
     for stream in server.incoming() {
-        std::thread::spawn(move || {         
+        std::thread::spawn(move || {   
+                  
             let websocket = accept(stream.unwrap()).unwrap();
             let websocket_client = socket::WebSocketClient { websocket };
             let websocket_arc = Arc::new(Mutex::new(Some(websocket_client)));
-            let websocket_clone = websocket_arc.clone();
 
             loop { 
-                let raw_message = websocket_clone.lock().as_mut().unwrap().read().unwrap();
-                
+                let raw_message: Message;
+
+                {
+                    let mut ws_mtx_grd = websocket_arc.lock().unwrap();
+                    raw_message = match ws_mtx_grd.as_mut().unwrap().read() {
+                        Ok(m) => m,
+                        Err(err) => {
+                            error!("Error occured while readind the message {}", err);
+                            return;
+                        }
+                    };
+                }
+
                 if raw_message.is_close() {
                     info!("Distributor closed the connection");
                     return;
@@ -30,7 +45,7 @@ pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
 
                 if raw_message.is_text() {
                     //Currently only bombarding message is handled, any other message would result in an error
-                    if handle_text_message(websocket_clone.clone(), raw_message.to_text().unwrap()).is_err() { 
+                    if handle_text_message(websocket_arc.clone(), raw_message.to_text().unwrap()).is_err() { 
                         return;
                     }
                 }
@@ -41,8 +56,9 @@ pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
     Ok(())
 }
 
-fn handle_text_message(websocket_clone: Arc<lock_api::Mutex<parking_lot::RawFairMutex, std::option::Option<socket::WebSocketClient<std::net::TcpStream>>>>, text_message: &str) 
+fn handle_text_message(websocket_clone: Arc<Mutex<std::option::Option<socket::WebSocketClient<std::net::TcpStream>>>>, text_message: &str) 
 -> Result<(), Box<dyn std::error::Error + 'static>> {
+//fn handle_text_message(websocket_client: &mut socket::WebSocketClient<TcpStream>, text_message: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let message: socket::BombardMessage = match serde_json::from_str(&text_message) { //Convert to socket message
         Ok(m) => m,
         Err(err) => {
@@ -68,12 +84,17 @@ fn handle_text_message(websocket_clone: Arc<lock_api::Mutex<parking_lot::RawFair
         vec_data_map: vec_data_map
     };
 
+    //stats consumer
+    let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket_clone);
+
     //Bombard!!
     info!("Bombarding !!!");
-    match bombardier.bombard(websocket_clone) {
+    match bombardier.bombard(stats_sender) {
         Err(err) => error!("Bombarding failed : {}", err),
         Ok(()) => ()
     } 
+
+    stats_receiver_handle.join().unwrap();
     
     info!("Bombarding Complete");
     Ok(())

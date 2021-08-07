@@ -1,42 +1,43 @@
-use crate::cmd;
-use crate::file;
-use crate::http;
-use crate::parser;
-use crate::report;
-use crate::influxdb;
-use crate::postprocessor;
-use crate::socket::WebSocketClient;
 
-use crossbeam::channel;
 use chrono::{Utc, DateTime};
+use crossbeam::channel;
 use log::{debug, error, warn, trace};
-use parking_lot::FairMutex as Mutex;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::{thread, time};
-use std::ops::Deref;
+
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    thread, 
+    time,
+    ops::Deref,
+};
+
+use crate::{
+    cmd,
+    file,
+    model,
+    parse::postprocessor,
+    protocol::http,
+    report::stats,
+};
 
 pub struct  Bombardier {
     pub config: cmd::ExecConfig,
     pub env_map: HashMap<String, String>,
-    pub requests: Vec<parser::Request>,
+    pub requests: Vec<model::Request>,
     pub vec_data_map: Vec<HashMap<String, String>>
 }
 
 impl Bombardier {
-    pub fn bombard(&self, ws_arc: Arc<Mutex<Option<WebSocketClient<std::net::TcpStream>>>>)
+    pub fn bombard(&self, stats_sender: channel::Sender<Vec<stats::Stats>>)
     -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-
-        let config = self.config.clone();
-
-        let no_of_threads = config.thread_count;
-        let no_of_iterations = config.iterations;
-        let thread_delay = config.rampup_time * 1000 / no_of_threads;
-        let think_time = config.think_time;
-        let continue_on_error = config.continue_on_error;
-        let is_distributed = config.distributed;
+        
+        let no_of_threads = self.config.thread_count;
+        let no_of_iterations = self.config.iterations;
+        let thread_delay = self.config.rampup_time * 1000 / no_of_threads;
+        let think_time = self.config.think_time;
+        let continue_on_error = self.config.continue_on_error;
     
-        let client_arc = Arc::new(http::get_sync_client(&config)?);
+        let client_arc = Arc::new(http::get_sync_client(&self.config)?);
         let requests = Arc::new(self.requests.clone());
        
         let data_count = self.vec_data_map.len();
@@ -44,15 +45,12 @@ impl Bombardier {
         let data_counter: usize = 0;
         let data_counter_arc = Arc::new(Mutex::new(data_counter));
 
-        let reporter = report::new(&config.report_file)?;
-        
-        let (csv_tx, csv_recv_handle) = init_csv_chan(reporter); //Start CSV channel
-        let (report_tx, report_recv_handle) = init_report_chan(ws_arc, &config.influxdb); //Start reporting channel
+        let stats_sender_arc = Arc::new(stats_sender.clone());
         
         let mut handles = vec![];
 
         let start_time = Utc::now();
-        let execution_time = config.execution_time;
+        let execution_time = self.config.execution_time;
 
         for thread_cnt in 0..no_of_threads {
             let requests_clone = requests.clone();
@@ -60,10 +58,8 @@ impl Bombardier {
             let mut env_map_clone = self.env_map.clone();
             let vec_data_map_clone = vec_data_map_arc.clone();
             let data_counter_clone = data_counter_arc.clone();
+            let stats_sender_clone = stats_sender_arc.clone();
 
-            let csv_tx_clone = csv_tx.clone();
-            let report_tx_clone = report_tx.clone();
-            
             let mut thread_iteration = 0;
 
             let handle = thread::spawn(move || {
@@ -81,7 +77,8 @@ impl Bombardier {
 
                     //get data set
                     if data_count > 0 {
-                        let data_map = get_data_map(&vec_data_map_clone, &mut *data_counter_clone.lock(), data_count);
+                        let mut data_couter_mg = data_counter_clone.lock().unwrap();
+                        let data_map = get_data_map(&vec_data_map_clone, &mut data_couter_mg, data_count);
                         env_map_clone.extend(data_map.into_iter().map(|(k, v)| (k.clone(), v.clone())));
                         debug!("data used for {}-{} : {:?}", thread_cnt, thread_iteration, data_map);
                     }
@@ -93,12 +90,7 @@ impl Bombardier {
 
                         match http::execute(&client_clone, processed_request) {
                             Ok((response, latency)) => {
-                                let new_stats = report::Stats::new(&request.name, response.status().as_u16(), latency);
-
-                                if !is_distributed {
-                                    csv_tx_clone.send(new_stats.clone()).unwrap(); //send stats to csv channel
-                                }
-                                
+                                let new_stats = stats::Stats::new(&request.name, response.status().as_u16(), latency);
                                 vec_stats.push(new_stats); //Add stats to vector
 
                                 if !continue_on_error && is_failed_request(response.status().as_u16()) { //check status
@@ -112,7 +104,7 @@ impl Bombardier {
                                 }
                             },
                             Err(err) => {
-                                error!("Error occured while executing request {}, : {}", &request.name, err);
+                                error!("Error occured while executing request {} : {}", &request.name, err);
                                 if !continue_on_error {
                                     warn!("Skipping rest of the iteration as continue on error is set to false");
                                     break;
@@ -121,7 +113,8 @@ impl Bombardier {
                         }
                         thread::sleep(time::Duration::from_millis(think_time)); //wait per request delay
                     };
-                    report_tx_clone.send(vec_stats.clone()).unwrap(); //Send data to distributor    
+
+                    stats_sender_clone.send(vec_stats.clone()).unwrap();
                 }
             });
 
@@ -133,12 +126,7 @@ impl Bombardier {
             handle.join().unwrap();
         }
 
-        drop(csv_tx);
-        drop(report_tx);
-       
-        csv_recv_handle.join().unwrap();
-        report_recv_handle.join().unwrap();
-
+        drop(stats_sender);
         Ok(())
     }
 }
@@ -158,9 +146,9 @@ fn is_failed_request(status: u16) -> bool {
     status > 399
 }
 
-fn preprocess(request: &parser::Request, env_map: &HashMap<String, String>) -> parser::Request {
+fn preprocess(request: &model::Request, env_map: &HashMap<String, String>) -> model::Request {
     let mut s_request = serde_json::to_string(request).expect("Request cannot be serialized");
-    s_request = file::find_and_replace(s_request, &env_map);
+    s_request = file::param_substitution(s_request, &env_map);
     match serde_json::from_str(&s_request) {
         Ok(r) => r,
         Err(err) => {
@@ -169,57 +157,4 @@ fn preprocess(request: &parser::Request, env_map: &HashMap<String, String>) -> p
             request.clone()
         }
     }
-}
-
-fn init_csv_chan(reporter: report::Reporter) -> (channel::Sender<report::Stats>, thread::JoinHandle<()>) {
-    let (tx, rx): (channel::Sender<report::Stats>, channel::Receiver<report::Stats>) = channel::unbounded();
-    let reporter_arc = Arc::new(Mutex::new(reporter));
-    let handle = thread::spawn(move || {
-        loop {
-            match rx.recv() {
-                Ok(stats) => reporter_arc.lock().write_stats_to_csv(&format!("{}", &stats)),
-                Err(_) => break //Channel has been closed
-            }
-        }
-    });
-
-    (tx, handle)
-}
-
-fn init_report_chan(ws_arc: Arc<Mutex<Option<WebSocketClient<std::net::TcpStream>>>>, influxdb: &cmd::InfluxDB) 
--> (channel::Sender<Vec<report::Stats>>, thread::JoinHandle<()>) {
-
-    let influxdb_client = influxdb::InfluxDBClient {client: http::get_default_sync_client(), influxdb: influxdb.clone()};
-    let influx_arc = Arc::new(Mutex::new(influxdb_client));
-
-    let (tx, rx): (channel::Sender<Vec<report::Stats>>, channel::Receiver<Vec<report::Stats>>) = channel::unbounded();
-
-    let is_distributed = ws_arc.lock().is_some(); //socket must be some if distributed
-    let write_to_influx = influxdb.url.starts_with("http") && influxdb.dbname.len() > 0;
-
-    let handle = thread::spawn(move || { //Send stats to distributor
-        let mut websocket_mg = ws_arc.lock();
-
-        loop {
-            match rx.recv() {
-                Ok(stats) => {   
-                    if write_to_influx {
-                        influx_arc.lock().write_stats(stats.clone()); //write to influx
-                    }
-    
-                    if is_distributed {
-                        websocket_mg.as_mut().unwrap().write(serde_json::to_string(&stats).unwrap()); //write to websocket
-                    }
-                },
-                Err(_) => {
-                    if is_distributed { //If distributed, channel has been closed explicitly, send done to distributor
-                        websocket_mg.as_mut().unwrap().write(String::from("done"));
-                    }               
-                    break;
-                }
-            }
-        }
-    });
-
-    (tx, handle)
 }

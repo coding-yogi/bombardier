@@ -1,4 +1,9 @@
-use flexi_logger::{Duplicate, FileSpec, Logger, opt_format};
+use flexi_logger::{
+    Duplicate, 
+    FileSpec, 
+    Logger, 
+    opt_format
+};
 
 pub fn initiate(with_file: bool) {
     let mut logger = Logger::try_with_env().unwrap().format(opt_format);

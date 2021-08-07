@@ -1,17 +1,18 @@
-use crate::file;
-
 use clap::{Arg, App, ArgMatches, SubCommand};
 use log::{info, warn};
 use serde::{Serialize, Deserialize, Deserializer, de::Error};
 
+use crate::file;
+
+//ExecConfig is the model for execution configuration
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ExecConfig {
 
-    #[serde(default)]
-    pub environment_file: String,
+    #[serde(deserialize_with = "check_yml_file")]
+    pub scenarios_file: String,
 
-    #[serde(deserialize_with = "check_json_file")]
-    pub collection_file: String,
+    #[serde(deserialize_with = "check_yml_file")]
+    pub environment_file: String,
 
     #[serde(default = "default_report_file")]
     pub report_file: String,
@@ -73,17 +74,22 @@ pub struct Ssl {
     #[serde(default)]
     pub accept_invalid_hostnames: bool,
 
-    #[serde(deserialize_with = "check_der_or_pem")]
+    #[serde(default, deserialize_with = "check_der_or_pem")]
     pub certificate: String,
 
-    #[serde(deserialize_with = "check_p12_or_pfx")]
+    #[serde(default, deserialize_with = "check_p12_or_pfx")]
     pub keystore: String,
+
+    #[serde(default)]
     pub keystore_password: String,
 }
 
 const CONFIG_ARG_NAME: &str = "config json file";
 const PORT_ARG_NAME: &str = "websocket port";
+const REPORT_FILE_ARG_NAME: &str = "report file";
 const JSON_EXT: &str = ".json";
+const CSV_EXT: &str = ".csv";
+const YAML_EXT: &str = ".yml";
 pub const DER_EXT: &str = ".der";
 pub const PEM_EXT: &str = ".pem";
 pub const P12_EXT: &str = ".p12";
@@ -99,21 +105,42 @@ fn default_to_one() -> u64 {
 }
 
 pub fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
-    let config_arg = create_config_arg(CONFIG_ARG_NAME);
-
     App::new("Bombardier")
         .version("0.1.0")
         .author("Coding Yogi <aniket.g2185@gmail.com>")
         .subcommand(SubCommand::with_name("bombard")
                 .about("Executes the test")
-                .arg(&config_arg))
+                .arg(Arg::with_name(CONFIG_ARG_NAME)
+                    .short("c")
+                    .long("config")
+                    .takes_value(true)
+                    .required(true)
+                    .validator(|s: String| {
+                        match s.ends_with(JSON_EXT) {
+                            true => Ok(()),
+                            false => Err(String::from("File should be a .json file"))
+                        }
+                    })
+                    .display_order(0)
+                    .help("Execution configuration json file")))
         .subcommand(SubCommand::with_name("report")
                 .about("Generates the report from report file")
-                .arg(&config_arg))
+                .arg(Arg::with_name(REPORT_FILE_ARG_NAME)
+                    .short("f")
+                    .long("report_file")
+                    .takes_value(true)
+                    .required(true)
+                    .validator(|s: String| {
+                        match s.ends_with(CSV_EXT) {
+                            true => Ok(()),
+                            false => Err(String::from("File should be a .csv file"))
+                        }
+                    })
+                    .help("Report file in csv format")))
         .subcommand(SubCommand::with_name("node")
                 .about("Starts bombardier as a node")
                 .arg(Arg::with_name(PORT_ARG_NAME)
-                        .short("p")
+                    .short("p")
                     .long("port")
                     .takes_value(true)
                     .required(true)
@@ -122,26 +149,13 @@ pub fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
                             Ok(_) => Ok(()),
                             Err(_) => Err(String::from("Port should be an integer"))
                         }
-                    })))
+                    }
+                )
+            )
+        )
 }
 
-fn create_config_arg<'a>(arg_name: &'a str) -> Arg<'a, 'a> {
-    Arg::with_name(arg_name)
-        .short("c")
-        .long("config")
-        .takes_value(true)
-        .required(true)
-        .validator(|s: String| {
-            match s.ends_with(JSON_EXT) {
-                true => Ok(()),
-                false => Err(String::from("File should be a .json file"))
-            }
-        })
-        .display_order(0)
-        .help("Execution configuration json file")
-}
-
-fn get_config_from_file(config_file_path: String) -> Result<ExecConfig, Box<dyn std::error::Error + Send + Sync>> {
+fn get_config_from_file(config_file_path: String) -> Result<ExecConfig, Box<dyn std::error::Error>> {
     info!("Parsing config file {}", config_file_path);
     
     let content = file::get_content(&config_file_path)?;
@@ -158,14 +172,18 @@ fn get_config_from_file(config_file_path: String) -> Result<ExecConfig, Box<dyn 
     Ok(config)
 }
 
-pub fn get_config(subcommand_args: Option<&ArgMatches<>>) -> Result<ExecConfig, Box<dyn std::error::Error + Send + Sync>> {
-    let config_file_path = get_value_as_str(subcommand_args, CONFIG_ARG_NAME); 
+pub fn get_config(subcommand_args: Option<&ArgMatches<>>) -> Result<ExecConfig, Box<dyn std::error::Error>> {
+    let config_file_path = arg_value_as_str(subcommand_args, CONFIG_ARG_NAME); 
     let config = get_config_from_file(config_file_path)?;
     Ok(config)
 }
 
 pub fn get_port(subcommand_args: Option<&ArgMatches<>>) -> i32 {
-    get_value_as_int(subcommand_args, PORT_ARG_NAME)
+    arg_value_as_int(subcommand_args, PORT_ARG_NAME)
+}
+
+pub fn get_report_file(subcommand_args: Option<&ArgMatches<>>) -> String {
+    arg_value_as_str(subcommand_args, REPORT_FILE_ARG_NAME)
 }
 
 fn check_non_zero <'de, D>(deserializer: D) -> Result<u64, D::Error> 
@@ -198,17 +216,17 @@ where D: Deserializer<'de> {
     Ok(val)
 }
 
-fn check_json_file <'de, D>(deserializer: D) -> Result<String, D::Error> 
+fn check_yml_file <'de, D>(deserializer: D) -> Result<String, D::Error> 
 where D: Deserializer<'de> { 
     let val = String::deserialize(deserializer)?;
-    if !val.ends_with(JSON_EXT)  {
-        return Err(Error::custom("File should be a .json file"))
+    if !val.ends_with(YAML_EXT)  {
+        return Err(Error::custom("File should be a .yml file"))
     }
 
     Ok(val)
 }
 
-fn get_value_as_str(matches: Option<&ArgMatches>, arg: &str) -> String {
+fn arg_value_as_str(matches: Option<&ArgMatches>, arg: &str) -> String {
     match matches {
         Some(x) => match x.value_of(arg) {
                         Some(y) => y.to_string(),
@@ -218,7 +236,7 @@ fn get_value_as_str(matches: Option<&ArgMatches>, arg: &str) -> String {
     }
 }
 
-fn get_value_as_int(matches: Option<&ArgMatches>, arg: &str) -> i32 {
+fn arg_value_as_int(matches: Option<&ArgMatches>, arg: &str) -> i32 {
     match matches {
         Some(x) => match x.value_of(arg) {
                         Some(y) => y.parse::<i32>().unwrap(),

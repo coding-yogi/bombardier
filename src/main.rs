@@ -1,20 +1,20 @@
 mod bombardier;
 mod cmd;
-mod distributor;
-mod file;
-mod http;
-mod influxdb;
-mod logger;
-mod node;
-mod parser;
-mod postprocessor;
+mod parse;
+mod protocol;
 mod report;
-mod socket;
+mod scale;
+mod util;
 
 use log::{info, error};
-use parking_lot::FairMutex as Mutex;
-use std::sync::Arc;
-
+use std::sync::{Arc, Mutex};
+use crate::{
+    parse::{model, parser},
+    protocol::socket,
+    report::stats,
+    scale::{hub, node},
+    util::{logger, file},
+};
 
 fn main()  {
 
@@ -32,17 +32,17 @@ fn main()  {
         "bombard" => {
             let config = match cmd::get_config(subcommand_args) {
                 Err(err) => {
-                    error!("Error occured while parsing command line args : {}", err);
+                    error!("Error occured while parsing config json : {}", err);
                     return;
                 },
                 Ok(config) => config
             }; 
 
-            let collection_file = &config.collection_file;
-            info!("Reading collections file {}", collection_file);
-            let contents = match file::get_content(collection_file) {
+            let scenarios_file = &config.scenarios_file;
+            info!("Reading scenarios file {}", scenarios_file);
+            let contents = match file::get_content(scenarios_file) {
                 Err(err) => {
-                    error!("Error occured while reading collection file {} : {}", collection_file, err);
+                    error!("Error occured while reading scenarios file {} : {}", scenarios_file, err);
                     return;
                 },
                 Ok(c) => c
@@ -76,10 +76,10 @@ fn main()  {
                 },
                 Ok(v) => v
             };
-           
+            
             if config.distributed {
                 info!("Distributed bombarding is set to true");
-                match distributor::distribute(config, env_map, requests) {
+                match hub::distribute(config, env_map, requests) {
                     Err(err) => error!("Load distribution failed : {}", err),
                     Ok(()) => ()
                 }
@@ -92,34 +92,22 @@ fn main()  {
                     vec_data_map
                 };
 
-                match bombardier.bombard(Arc::new(Mutex::new(None))) {
+                let websocket = Arc::new(Mutex::new(None));
+                let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket);
+
+                match bombardier.bombard(stats_sender) {
                     Err(err) => error!("Bombarding failed : {}", err),
                     Ok(()) => info!("Bombarding Complete. Run report command to get details")
                 }   
-            }
 
-            
-            
+                stats_receiver_handle.join().unwrap();
+            }
         },
         "report" => {
-            let config = match cmd::get_config(subcommand_args) {
-                Err(err) => {
-                    error!("Error occured while parsing command line args : {}", err);
-                    return;
-                },
-                Ok(config) => config
-            }; 
+            let report_file = cmd::get_report_file(subcommand_args);
 
             info!("Generating report");
-            let reporter = match report::get_reporter(&config.report_file) {
-                Err(err) => {
-                    error!("Error while getting report file : {}", err);
-                    return;
-                },
-                Ok(r) => r
-            }; 
-
-            match reporter.display() {
+            match stats::display(&report_file) {
                 Err(err) => {
                     error!("Error while displaying reports : {}", err);
                     return;

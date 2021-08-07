@@ -1,8 +1,10 @@
-use std::fs;
-use std::io::Error;
-use std::collections::HashMap;
-
 use log::error;
+
+use std::{
+    fs,
+    io::Error,
+    collections::HashMap
+};
 
 pub fn get_content(path: &str) -> Result<String, Error> {
     let file = fs::read_to_string(path);
@@ -40,12 +42,12 @@ pub fn get_file(path: &str) -> Result<fs::File, Error> {
     file
 }
 
-pub fn find_and_replace(mut content: String, map: &HashMap<String, String>) -> String {
+pub fn param_substitution(mut content: String, params: &HashMap<String, String>) -> String {
     if content.contains("{{") { //Avoid unnecessary looping, might be tricked by json but would avoid most
-        for (k, v) in map {
-            let replaced_string = &format!("{{{{{}}}}}", k);
-            let replacing_string = v.replace(r#"""#, r#"\""#);
-            content = content.replace(replaced_string, &replacing_string);
+        for (param_name, param_value) in params {
+            let from = &format!("{{{{{}}}}}", param_name);
+            let to = param_value.replace(r#"""#, r#"\""#);
+            content = content.replace(from, &to);
         }
     }
     

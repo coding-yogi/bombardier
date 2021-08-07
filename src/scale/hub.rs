@@ -1,15 +1,22 @@
-use crate::cmd;
-use crate::parser;
-use crate::report;
-use crate::socket;
-
-use log::{debug, error, info};
+use log::*;
 use parking_lot::FairMutex as Mutex;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
 
-pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, requests: Vec<parser::Request>) -> Result<(), Box<dyn std::error::Error>> {
+use crate::{
+    cmd,
+    model,
+    report::{
+        csv, 
+        stats,
+        stats::StatsWriter
+    },
+    socket,
+};
+
+pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, requests: Vec<model::Request>) -> Result<(), Box<dyn std::error::Error>> {
 
     let no_of_nodes = config.nodes.len();
     if no_of_nodes == 0 {
@@ -17,8 +24,8 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
     }
 
     info!("Creating report file: {}", &config.report_file);
-    let reporter = report::new(&config.report_file)?;
-    let reporter_arc = Arc::new(Mutex::new(reporter));
+    let csv_writer = csv::CSVWriter::new(&config.report_file).unwrap();
+    let csv_writer_arc = Arc::new(Mutex::new(csv_writer));
 
     let mut sockets = HashMap::new();
     
@@ -41,7 +48,7 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
     //Loop through all connections
     for (node, mut socket) in sockets {
         socket.write(serde_json::to_string(&message).unwrap()); //Send data to node
-        let reporter_arc_clone = reporter_arc.clone();
+        let csv_writer_arc_clone = csv_writer_arc.clone();
 
         //let report_clone = report_arc.clone();
         handles.push(thread::spawn(move || {
@@ -61,11 +68,9 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
                         return; 
                     } 
 
-                    //Write stats to CSV - //TODO: Improve performance
-                    let stats: Vec<report::Stats> = serde_json::from_str(text_msg).unwrap();
-                    for stat in stats {
-                        reporter_arc_clone.lock().write_stats_to_csv(&format!("{}", &stat.clone()));
-                    }
+                    //Write stats to CSV
+                    let stats: Vec<stats::Stats> = serde_json::from_str(text_msg).unwrap();
+                    csv_writer_arc_clone.lock().write_stats(&stats);
                 }
             } 
         }));
