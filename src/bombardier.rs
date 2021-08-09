@@ -2,6 +2,10 @@
 use chrono::{Utc, DateTime};
 use crossbeam::channel;
 use log::{debug, error, warn, trace};
+use tokio::{
+    task::spawn,
+    runtime::Runtime
+};
 
 use std::{
     collections::HashMap,
@@ -14,7 +18,7 @@ use std::{
 use crate::{
     cmd,
     file,
-    model,
+    model::scenarios,
     parse::postprocessor,
     protocol::http,
     report::stats,
@@ -23,12 +27,12 @@ use crate::{
 pub struct  Bombardier {
     pub config: cmd::ExecConfig,
     pub env_map: HashMap<String, String>,
-    pub requests: Vec<model::Request>,
+    pub requests: Vec<scenarios::Request>,
     pub vec_data_map: Vec<HashMap<String, String>>
 }
 
 impl Bombardier {
-    pub fn bombard(&self, stats_sender: channel::Sender<Vec<stats::Stats>>)
+    pub async fn bombard(&self, stats_sender: channel::Sender<Vec<stats::Stats>>)
     -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         
         let no_of_threads = self.config.thread_count;
@@ -62,7 +66,7 @@ impl Bombardier {
 
             let mut thread_iteration = 0;
 
-            let handle = thread::spawn(move || {
+            let handle = spawn(async move {
                 loop {
                     if no_of_iterations > 0 { //Iteration Based execution
                         if thread_iteration >= no_of_iterations { 
@@ -88,7 +92,7 @@ impl Bombardier {
                         let processed_request = preprocess(&request, &env_map_clone); //transform request
                         trace!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
 
-                        match http::execute(&client_clone, processed_request) {
+                        match http::execute(&client_clone, processed_request).await {
                             Ok((response, latency)) => {
                                 let new_stats = stats::Stats::new(&request.name, response.status().as_u16(), latency);
                                 vec_stats.push(new_stats); //Add stats to vector
@@ -98,7 +102,7 @@ impl Bombardier {
                                     break;
                                 }
 
-                                match postprocessor::process(response, &request, &mut env_map_clone) { //process response and update env_map
+                                match postprocessor::process(response, &request, &mut env_map_clone).await { //process response and update env_map
                                     Err(err) => error!("Error occurred while post processing response for request {} : {}", &request.name, err),
                                     Ok(()) => ()
                                 }
@@ -122,10 +126,8 @@ impl Bombardier {
             thread::sleep(time::Duration::from_millis(thread_delay)); //wait per thread delay
         }
 
-        for handle in handles {
-            handle.join().unwrap();
-        }
-
+        futures::future::join_all(handles).await;
+        
         drop(stats_sender);
         Ok(())
     }
@@ -146,7 +148,7 @@ fn is_failed_request(status: u16) -> bool {
     status > 399
 }
 
-fn preprocess(request: &model::Request, env_map: &HashMap<String, String>) -> model::Request {
+fn preprocess(request: &scenarios::Request, env_map: &HashMap<String, String>) -> scenarios::Request {
     let mut s_request = serde_json::to_string(request).expect("Request cannot be serialized");
     s_request = file::param_substitution(s_request, &env_map);
     match serde_json::from_str(&s_request) {

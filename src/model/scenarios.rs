@@ -51,7 +51,7 @@ pub struct Body {
     pub formdata: Mapping,
 }
 
-#[derive(Deserialize, Debug)]
+/*#[derive(Deserialize, Debug)]
 pub struct Env {
     #[serde(rename = "values")]
     pub key_values: Vec<KeyValue>
@@ -61,7 +61,7 @@ pub struct Env {
 pub struct KeyValue {
     pub key: String,
     pub value: String
-}
+}*/
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct Extractor {

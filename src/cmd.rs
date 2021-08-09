@@ -85,7 +85,8 @@ pub struct Ssl {
 }
 
 const CONFIG_ARG_NAME: &str = "config json file";
-const PORT_ARG_NAME: &str = "websocket port";
+pub const SERVER_PORT_ARG_NAME: &str = "server port";
+pub const SOCKET_PORT_ARG_NAME: &str = "websocket port";
 const REPORT_FILE_ARG_NAME: &str = "report file";
 const JSON_EXT: &str = ".json";
 const CSV_EXT: &str = ".csv";
@@ -139,7 +140,7 @@ pub fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
                     .help("Report file in csv format")))
         .subcommand(SubCommand::with_name("node")
                 .about("Starts bombardier as a node")
-                .arg(Arg::with_name(PORT_ARG_NAME)
+                .arg(Arg::with_name(SOCKET_PORT_ARG_NAME)
                     .short("p")
                     .long("port")
                     .takes_value(true)
@@ -152,6 +153,33 @@ pub fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
                     }
                 )
             )
+        )
+        .subcommand(SubCommand::with_name("serve")
+                .about("Starts bombardier as a web server")
+                .args(&[
+                    Arg::with_name(SERVER_PORT_ARG_NAME)
+                    .short("p")
+                    .long("port")
+                    .takes_value(true)
+                    .required(true)
+                    .validator(|s: String| {
+                        match s.parse::<u16>() {
+                            Ok(_) => Ok(()),
+                            Err(_) => Err(String::from("Port should be an integer"))
+                        }
+                    }),
+                    Arg::with_name(SOCKET_PORT_ARG_NAME)
+                    .short("s")
+                    .long("socket_port")
+                    .takes_value(true)
+                    .required(true)
+                    .validator(|s: String| {
+                        match s.parse::<u16>() {
+                            Ok(_) => Ok(()),
+                            Err(_) => Err(String::from("Socket port should be an integer"))
+                        }
+                    })
+                ])
         )
 }
 
@@ -178,8 +206,8 @@ pub fn get_config(subcommand_args: Option<&ArgMatches<>>) -> Result<ExecConfig, 
     Ok(config)
 }
 
-pub fn get_port(subcommand_args: Option<&ArgMatches<>>) -> i32 {
-    arg_value_as_int(subcommand_args, PORT_ARG_NAME)
+pub fn get_port(subcommand_args: Option<&ArgMatches<>>, name: &str) -> u16 {
+    arg_value_as_u16(subcommand_args, name)
 }
 
 pub fn get_report_file(subcommand_args: Option<&ArgMatches<>>) -> String {
@@ -236,10 +264,10 @@ fn arg_value_as_str(matches: Option<&ArgMatches>, arg: &str) -> String {
     }
 }
 
-fn arg_value_as_int(matches: Option<&ArgMatches>, arg: &str) -> i32 {
+fn arg_value_as_u16(matches: Option<&ArgMatches>, arg: &str) -> u16 {
     match matches {
         Some(x) => match x.value_of(arg) {
-                        Some(y) => y.parse::<i32>().unwrap(),
+                        Some(y) => y.parse::<u16>().unwrap(),
                         None => 0
         },
         None => 0

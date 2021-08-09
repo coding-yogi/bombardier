@@ -1,9 +1,12 @@
 use log::*;
 use parking_lot::FairMutex as Mutex;
+use uuid::Uuid;
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::thread;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    thread
+};
 
 use crate::{
     cmd,
@@ -16,7 +19,7 @@ use crate::{
     socket,
 };
 
-pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, requests: Vec<model::Request>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, requests: Vec<model::scenarios::Request>) -> Result<(), Box<dyn std::error::Error>> {
 
     let no_of_nodes = config.nodes.len();
     if no_of_nodes == 0 {
@@ -34,7 +37,10 @@ pub fn distribute(config: cmd::ExecConfig, env_map: HashMap<String, String>, req
         let node_address = format!("ws://{}/ws", &node);
         let websocket = socket::connect(node_address.clone())?;
         info!("Connected to {} successfully", &node_address);
-        sockets.insert(node.clone(), socket::WebSocketClient { websocket });
+        sockets.insert(node.clone(), socket::WebSocketConn {   
+            websocket : websocket,
+            uuid: Uuid::new_v4().to_hyphenated().to_string() 
+        });
     }
 
     let message = socket::BombardMessage {

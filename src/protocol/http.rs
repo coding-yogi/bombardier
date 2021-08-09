@@ -1,27 +1,27 @@
 use log::{error, info, warn};
 use reqwest::{
-    blocking::{
-        Client, 
-        Response, 
-        RequestBuilder
-    }, 
+    Client, 
+    Response, 
+    RequestBuilder,
     header::{
         HeaderMap, 
         HeaderName, 
         HeaderValue},
     Certificate, 
     Identity, 
-    Method
+    Method,
+    multipart::{Form,Part}
 };
 
 use std::{
     collections::HashMap,
     error::Error,
+    fs::File,
     str::FromStr,
     time,
 };
 
-use crate::{cmd, file, model};
+use crate::{cmd, file, model::scenarios};
 
 pub fn get_default_sync_client() -> Client {
     Client::builder()
@@ -91,7 +91,7 @@ pub fn get_sync_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Erro
     Ok(client_builder.build()?)
 }
 
-fn get_header_map_from_request(request: &model::Request) -> Result<HeaderMap, Box<dyn Error + Send + Sync>> {
+fn get_header_map_from_request(request: &scenarios::Request) -> Result<HeaderMap, Box<dyn Error + Send + Sync>> {
     let mut headers = HeaderMap::new();
     for header in &request.headers {
         headers.insert(HeaderName::from_str(header.0.as_str().unwrap())?, 
@@ -101,15 +101,15 @@ fn get_header_map_from_request(request: &model::Request) -> Result<HeaderMap, Bo
     Ok(headers)
 }
 
-fn add_multipart_form_data(builder: RequestBuilder, body: model::Body) -> RequestBuilder {
-    let mut form = reqwest::blocking::multipart::Form::new();
+fn add_multipart_form_data(builder: RequestBuilder, body: scenarios::Body) -> RequestBuilder {
+    let mut form = Form::new();
 
     for data in body.formdata.clone() {
         let param_key = data.0.as_str().unwrap().to_string();
         let param_value = data.1.as_str().unwrap().to_string();
 
         if param_key.to_lowercase().starts_with("_file") {
-            form = form.file("file", param_value).unwrap();
+            //form = form.part("file", Part::param_value).unwrap();
         } else {
             form = form.text(param_key, param_value);
         }
@@ -118,7 +118,7 @@ fn add_multipart_form_data(builder: RequestBuilder, body: model::Body) -> Reques
     builder.multipart(form)
 }
 
-fn add_url_encoded_data(builder: RequestBuilder, body: model::Body) -> RequestBuilder {
+fn add_url_encoded_data(builder: RequestBuilder, body: scenarios::Body) -> RequestBuilder {
     let mut params = HashMap::new();
 
     for param in body.urlencoded {
@@ -130,7 +130,7 @@ fn add_url_encoded_data(builder: RequestBuilder, body: model::Body) -> RequestBu
     builder.form(&params)
 }
 
-pub fn execute(client: &Client, request: model::Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {
+pub async fn execute(client: &Client, request: scenarios::Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {
    
     //Check if method is valid, else return error
     let method_name = request.method.to_uppercase().clone();
@@ -162,7 +162,7 @@ pub fn execute(client: &Client, request: model::Request) -> Result<(Response, u1
 
     //Initialising timestamps
     let start_time = time::Instant::now();
-    let resp = builder.send()?;
+    let resp = builder.send().await?;
     let end_time = start_time.elapsed().as_millis();
    
     Ok((resp, end_time))

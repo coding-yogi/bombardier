@@ -5,12 +5,12 @@ use std::{
     error::Error,
 };
 
-use crate::{file, model};
+use crate::{file, model::scenarios};
 
-pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<model::Request>, Box<dyn Error>> {
+pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<scenarios::Request>, Box<dyn Error>> {
     let scenarios_yml = file::param_substitution(content, &env_map);
 
-    let root: model::Root = match serde_yaml::from_str(&scenarios_yml) {
+    let root: scenarios::Root = match serde_yaml::from_str(&scenarios_yml) {
         Ok(r) => r,
         Err(err) => {
             error!("error deserializing yaml: {}", err.to_string());
@@ -18,7 +18,7 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
         }
     };
 
-    let mut requests = Vec::<model::Request>::new();
+    let mut requests = Vec::<scenarios::Request>::new();
   
     for scenario in root.scenarios {
         for request in scenario.requests {
@@ -37,7 +37,7 @@ pub fn get_env_map(env_file: &str) -> Result<HashMap<String, String>, Box<dyn Er
         warn!("No environment json file specified in config");
     } else {
         let env_file_content = file::get_content(env_file)?;
-        let env: model::Environment = serde_yaml::from_str(&env_file_content)?;
+        let env: scenarios::Environment = serde_yaml::from_str(&env_file_content)?;
     
         for var in env.variables {
             let key = var.0.as_str().unwrap().to_string();

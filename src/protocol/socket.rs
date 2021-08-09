@@ -18,14 +18,15 @@ use crate::{cmd, model, report::stats};
 pub struct BombardMessage {
     pub config: cmd::ExecConfig,
     pub env_map: HashMap<String, String>,
-    pub requests: Vec<model::Request>
+    pub requests: Vec<model::scenarios::Request>
 }
 
-pub struct WebSocketClient<T> {
+pub struct WebSocketConn<T> {
+    pub uuid: String,
     pub websocket: WebSocket<T>
 }
 
-impl <T> WebSocketClient<T> where T: std::io::Read + std::io::Write {
+impl <T> WebSocketConn<T> where T: std::io::Read + std::io::Write {
     pub fn write(&mut self, message: String) {
         match self.websocket.write_message(Message::from(message)) {
             Ok(_) => (),
@@ -45,7 +46,7 @@ impl <T> WebSocketClient<T> where T: std::io::Read + std::io::Write {
     }
 }
 
-impl <T> stats::StatsWriter for WebSocketClient<T> where T: std::io::Read + std::io::Write {
+impl <T> stats::StatsWriter for WebSocketConn<T> where T: std::io::Read + std::io::Write {
     fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
         self.write(serde_json::to_string(&stats).unwrap()) //check why json and not comma separated
     }

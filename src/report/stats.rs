@@ -52,7 +52,7 @@ pub trait StatsWriter {
 pub struct StatsConsumer {}
 
 impl StatsConsumer {
-    pub fn new(config: &cmd::ExecConfig, websocket_arc: Arc<Mutex<std::option::Option<socket::WebSocketClient<std::net::TcpStream>>>>) -> (channel::Sender<Vec<Stats>>, thread::JoinHandle<()>) {
+    pub fn new(config: &cmd::ExecConfig, websocket_arc: Arc<Mutex<std::option::Option<socket::WebSocketConn<std::net::TcpStream>>>>) -> (channel::Sender<Vec<Stats>>, thread::JoinHandle<()>) {
         let (tx, rx) = channel::unbounded();
         let mut csv_writer = icsv::CSVWriter::new(&config.report_file).unwrap();
         

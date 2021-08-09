@@ -1,18 +1,18 @@
 use chrono::DateTime;
 use log::error;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde_yaml::{Mapping, Value};
 
 use crate::{
     cmd,
-    model,
+    model::scenarios,
     protocol::http,
     report::stats,
 };
 
 pub struct InfluxDBWriter {
     pub client: Client,
-    request: model::Request,
+    request: scenarios::Request,
 }
 
 impl InfluxDBWriter {
@@ -35,17 +35,17 @@ impl InfluxDBWriter {
 
         Some(InfluxDBWriter {
             client: client,
-            request: model::Request {
+            request: scenarios::Request {
                 name: String::from("postToInfluxDB"),
                 url: url,
                 method: String::from("POST"),
-                body: model::Body {
+                body: scenarios::Body {
                     formdata: Mapping::with_capacity(0),
                     urlencoded: Mapping::with_capacity(0),
                     raw: String::from(""),
                 },
                 headers: headers,
-                extractor: model::Extractor {
+                extractor: scenarios::Extractor {
                     gjson_path: Mapping::with_capacity(0),
                     xpath: Mapping::with_capacity(0),
                     regex: Mapping::with_capacity(0)
@@ -65,17 +65,16 @@ impl InfluxDBWriter {
 impl stats::StatsWriter for InfluxDBWriter {
     fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
 
-        /*for stat in stats {
-            body = format!("{}stats,request={} latency={},status={} {}\n",
-            body, stat.name, stat.latency, stat.status, DateTime::parse_from_rfc3339(&stat.timestamp).unwrap().timestamp_millis());
-        }*/
-
         //Setting Body
         self.set_body_from_stats(&stats);
-        
-        match http::execute(&self.client, self.request.clone()) {
-            Ok(_res) => (),
-            Err(err) => error!("Error writing to influxdb: {}", err)
-        };
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+
+        rt.block_on(async move {
+            match http::execute(&self.client, self.request.clone()).await {
+                Ok(_res) => (),
+                Err(err) => error!("Error writing to influxdb: {}", err)
+            };
+        })
     }
 }

@@ -1,22 +1,26 @@
 mod bombardier;
 mod cmd;
+mod handlers;
+mod model;
 mod parse;
 mod protocol;
 mod report;
+mod server;
 mod scale;
 mod util;
 
 use log::{info, error};
 use std::sync::{Arc, Mutex};
 use crate::{
-    parse::{model, parser},
+    parse::parser,
     protocol::socket,
     report::stats,
     scale::{hub, node},
     util::{logger, file},
 };
 
-fn main()  {
+#[tokio::main]
+async fn main()  {
 
     logger::initiate(true);
 
@@ -95,7 +99,7 @@ fn main()  {
                 let websocket = Arc::new(Mutex::new(None));
                 let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket);
 
-                match bombardier.bombard(stats_sender) {
+                match bombardier.bombard(stats_sender).await {
                     Err(err) => error!("Bombarding failed : {}", err),
                     Ok(()) => info!("Bombarding Complete. Run report command to get details")
                 }   
@@ -117,7 +121,7 @@ fn main()  {
         },
         "node" => {
             info!("Starting bombardier as a node");
-            let port = cmd::get_port(subcommand_args);
+            let port = cmd::get_port(subcommand_args, cmd::SOCKET_PORT_ARG_NAME);
             match  node::serve(&port.to_string()) {
                 Err(err) => {
                     error!("Error occured while running bombardier as node : {}", err);
@@ -126,8 +130,20 @@ fn main()  {
                 Ok(()) => ()
             }; 
         },
+        "serve" => {
+            info!("Starting bombardier as a hub server");
+            let server_port = cmd::get_port(subcommand_args, cmd::SERVER_PORT_ARG_NAME);
+            let ws_port = cmd::get_port(subcommand_args, cmd::SOCKET_PORT_ARG_NAME);
+            match server::servers::serve(server_port, ws_port).await {
+                Err(err) => {
+                    error!("Error occured while running bombardier as server : {}", err);
+                    return;
+                },
+                Ok(()) => ()
+            }
+        },
         _ => {
             error!("Invalid command");
-        }
+        },
     }
 }
