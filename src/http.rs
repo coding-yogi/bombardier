@@ -60,14 +60,13 @@ pub fn get_sync_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn std:
             info!("Adding new trusted certificate {}", &config.ssl.certificate);
             client_builder = client_builder.add_root_certificate(cert);
         }
-    }
 
-    if config.ssl.keystore != "" {
-        let ks = get_identity(&config.ssl.keystore, &config.ssl.keystore_password)?;
-        info!("Adding new keystore {}", &config.ssl.keystore);
-        client_builder = client_builder.identity(ks);
+        if config.ssl.keystore != "" {
+            let ks = get_identity(&config.ssl.keystore, &config.ssl.keystore_password)?;
+            info!("Adding new keystore {}", &config.ssl.keystore);
+            client_builder = client_builder.identity(ks);
+        }
     }
-    
 
     Ok(client_builder.build()?)
 }
