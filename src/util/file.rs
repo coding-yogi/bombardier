@@ -42,6 +42,11 @@ pub fn get_file(path: &str) -> Result<fs::File, Error> {
     file
 }
 
+pub fn get_file_name(path: &str) -> Result<String, Error> {
+    let iter = path.split("/");
+    Ok(iter.last().unwrap().to_string())
+}
+
 pub fn param_substitution(mut content: String, params: &HashMap<String, String>) -> String {
     if content.contains("{{") { //Avoid unnecessary looping, might be tricked by json but would avoid most
         for (param_name, param_value) in params {

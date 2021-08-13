@@ -1,6 +1,5 @@
 mod bombardier;
 mod cmd;
-mod handlers;
 mod model;
 mod parse;
 mod protocol;
@@ -10,12 +9,14 @@ mod scale;
 mod util;
 
 use log::{info, error};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
 use crate::{
+    bombardier::Bombardier,
     parse::parser,
     protocol::socket,
     report::stats,
-    scale::{hub, node},
     util::{logger, file},
 };
 
@@ -34,78 +35,60 @@ async fn main()  {
 
     match subcommand {
         "bombard" => {
-            let config = match cmd::get_config(subcommand_args) {
-                Err(err) => {
-                    error!("Error occured while parsing config json : {}", err);
-                    return;
-                },
-                Ok(config) => config
-            }; 
+            let config_file_path = cmd::get_config_file_path(subcommand_args);
+            info!("Parsing config file {}", config_file_path);
 
-            let scenarios_file = &config.scenarios_file;
-            info!("Reading scenarios file {}", scenarios_file);
-            let contents = match file::get_content(scenarios_file) {
-                Err(err) => {
-                    error!("Error occured while reading scenarios file {} : {}", scenarios_file, err);
-                    return;
-                },
-                Ok(c) => c
-            };
-            
-            let env_file = &config.environment_file;
-            info!("Reading environments file {}", env_file);
-            let env_map = match parser::get_env_map(env_file) {
-                Err(err) => {
-                    error!("Error occured while reading environments file {} : {}", env_file, err);
-                    return;
-                },
-                Ok(map) => map
-            }; 
-
-            let data_file = &config.data_file;
-            info!("Reading data file {}", data_file);
-            let vec_data_map = match parser::get_vec_data_map(data_file) {
-                Err(err) => {
-                    error!("Error occured while reading data file {} : {}", data_file, err);
-                    return;
-                },
-                Ok(vec) => vec
+            let config_content = match file::get_content(&config_file_path) {
+                Err(_) => return,
+                Ok(content) => content
             };
 
-            info!("Generating bombardier requests");
-            let requests = match parser::parse_requests(contents, &env_map) {
-                Err(err) => {
-                    error!("Error occured while parsing requests : {}", err);
-                    return;
-                },
-                Ok(v) => v
-            };
-            
-            if config.distributed {
-                info!("Distributed bombarding is set to true");
-                match hub::distribute(config, env_map, requests) {
-                    Err(err) => error!("Load distribution failed : {}", err),
-                    Ok(()) => ()
-                }
-            } else {
-                info!("Bombarding !!!");
-                let bombardier = bombardier::Bombardier {
-                    config,
-                    env_map,
-                    requests,
-                    vec_data_map
+            let config = parser::parse_config_from_string(config_content).unwrap();
+
+            //get content of env file
+            let mut env_content = String::new();
+            if config.environment_file != "" {
+                info!("Reading environments file {}", config.environment_file);
+                env_content = match file::get_content(&config.environment_file) {
+                    Ok(content) => content,
+                    Err(_) => return
                 };
-
-                let websocket = Arc::new(Mutex::new(None));
-                let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket);
-
-                match bombardier.bombard(stats_sender).await {
-                    Err(err) => error!("Bombarding failed : {}", err),
-                    Ok(()) => info!("Bombarding Complete. Run report command to get details")
-                }   
-
-                stats_receiver_handle.join().unwrap();
             }
+
+            //get content of scenario file
+            info!("Reading scenarios file {}", &config.scenarios_file);
+            let scenarios_content = match file::get_content(&config.scenarios_file) {
+                Err(_) => return,
+                Ok(content) => content
+            };
+
+            //get data file content
+            let mut data_content = String::new();
+            let data_file = &config.data_file;
+            if data_file != "" {
+                info!("Reading data file {}", data_file);
+                data_content = match file::get_content(&data_file) {
+                    Ok(content) => content,
+                    Err(_) => return
+                };
+            }
+
+            //prepare bombardier
+            info!("Prepare bombardier");
+            let bombardier = 
+                    Bombardier::new(config, env_content, scenarios_content, data_content).unwrap();
+            
+            let websocket = Arc::new(Mutex::new(None));
+            let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket);
+
+            info!("Bombarding !!!");
+            match bombardier.bombard(stats_sender).await {
+                Err(err) => error!("Bombarding failed : {}", err),
+                Ok(()) => info!("Bombarding Complete. Run report command to get details")
+            }   
+
+            stats_receiver_handle.await.unwrap();
+            
         },
         "report" => {
             let report_file = cmd::get_report_file(subcommand_args);
@@ -121,16 +104,16 @@ async fn main()  {
         },
         "node" => {
             info!("Starting bombardier as a node");
-            let port = cmd::get_port(subcommand_args, cmd::SOCKET_PORT_ARG_NAME);
-            match  node::serve(&port.to_string()) {
+            let hub_address = cmd::get_hub_address(subcommand_args);
+            match  server::node::start(hub_address).await {
                 Err(err) => {
-                    error!("Error occured while running bombardier as node : {}", err);
+                    error!("Error occured in the node : {}", err);
                     return;
                 },
                 Ok(()) => ()
             }; 
         },
-        "serve" => {
+        "hub" => {
             info!("Starting bombardier as a hub server");
             let server_port = cmd::get_port(subcommand_args, cmd::SERVER_PORT_ARG_NAME);
             let ws_port = cmd::get_port(subcommand_args, cmd::SOCKET_PORT_ARG_NAME);

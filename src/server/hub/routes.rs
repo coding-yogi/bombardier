@@ -2,8 +2,10 @@ use warp::Filter;
 
 use std::sync::Arc;
 
-use crate::handlers::api;
-use crate::server::servers;
+use crate::server::{
+    hub::api,
+    servers
+};
 
 pub fn bombardier_filters(ctx: Arc<servers::Context>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     start_execution(ctx.clone())
@@ -12,21 +14,22 @@ pub fn bombardier_filters(ctx: Arc<servers::Context>) -> impl Filter<Extract = i
 }
 
 pub fn start_execution(ctx: Arc<servers::Context>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("bombardier/v1/bombard")
+    warp::path!("bombardier" / "v1" / "bombard")
         .and(warp::post())
         .and(with_context(ctx))
+        .and(warp::multipart::form())
         .and_then(api::start)
 }
 
 pub fn stop_execution(ctx: Arc<servers::Context>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("bombardier/v1/stop")
+    warp::path!("bombardier" / "v1" / "stop")
         .and(warp::post())
         .and(with_context(ctx))
         .and_then(api::stop)
 }
 
 pub fn get_available_nodes(ctx: Arc<servers::Context>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("bombardier/v1/nodes")
+    warp::path!("bombardier" / "v1" / "nodes")
         .and(warp::get())
         .and(with_context(ctx))
         .and_then(api::nodes)

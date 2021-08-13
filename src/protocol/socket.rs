@@ -1,59 +1,71 @@
 
+use futures::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
 use log::*;
-use serde::{Serialize, Deserialize};
 use tungstenite::{
-    protocol::WebSocket,
-    connect as tconnect,
     Message,
 };
 
-use std::{
-    collections::HashMap, 
-    net::TcpStream
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio_tungstenite::{
+    connect_async,
+    MaybeTlsStream,
+    WebSocketStream as TTWebSocketStream
 };
 
-use crate::{cmd, model, report::stats};
+use crate::report::stats;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct BombardMessage {
-    pub config: cmd::ExecConfig,
-    pub env_map: HashMap<String, String>,
-    pub requests: Vec<model::scenarios::Request>
+pub struct WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
+    sink: SplitSink<TTWebSocketStream<T>, Message>
 }
 
-pub struct WebSocketConn<T> {
-    pub uuid: String,
-    pub websocket: WebSocket<T>
-}
+impl <T> WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
 
-impl <T> WebSocketConn<T> where T: std::io::Read + std::io::Write {
-    pub fn write(&mut self, message: String) {
-        match self.websocket.write_message(Message::from(message)) {
+    pub fn new(sink: SplitSink<TTWebSocketStream<T>, Message>) -> Self {
+        WebSocketSink { sink }
+    }
+
+    pub async fn write(&mut self, message: String) {
+        match self.sink.send(Message::Text(message).into()).await {
             Ok(_) => (),
             Err(err) => error!("Error occured while writing to socket: {}", err)
         }
     }
 
-    pub fn read(&mut self) -> Result<tungstenite::protocol::Message, tungstenite::error::Error> {
-        self.websocket.read_message()
-    }
-
-    pub fn close(&mut self) {
-        match self.websocket.write_message(Message::Close(None)) {
+    pub async fn close(&mut self) {
+        match self.sink.send(Message::Close(None)).await {
             Ok(_) => (),
             Err(err) => error!("Error occured while sending close message to socket: {}", err)
         }
     }
 }
 
-impl <T> stats::StatsWriter for WebSocketConn<T> where T: std::io::Read + std::io::Write {
+impl <T> stats::StatsWriter for WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
     fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
-        self.write(serde_json::to_string(&stats).unwrap()) //check why json and not comma separated
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(
+            async {
+                self.write(serde_json::to_string(&stats).unwrap()).await //check why json and not comma separated
+            }
+        )
     }
 }
 
-pub fn connect(url: String) -> Result<WebSocket<TcpStream>, Box<dyn std::error::Error>> {
-     match tconnect(url::Url::parse(&url).unwrap()) {
+pub struct WebSocketStream<T> where T: AsyncRead + AsyncWrite +  {
+    stream: SplitStream<TTWebSocketStream<T>>
+}
+
+impl <T> WebSocketStream<T> where T: AsyncRead + AsyncWrite + Unpin {
+    pub fn new(stream: SplitStream<TTWebSocketStream<T>>) -> Self {
+        WebSocketStream { stream }
+    }
+
+    pub async fn read(&mut self) -> Result<tungstenite::protocol::Message, tungstenite::error::Error> {
+        self.stream.next().await.unwrap()
+    }
+}
+
+pub async fn connect(url: String) -> Result<TTWebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>, Box<dyn std::error::Error>> {
+     match connect_async(url::Url::parse(&url).unwrap()).await {
          Ok((ws, _)) => Ok(ws),
          Err(err) => Err(format!("Connection failed: {}", err).into())
      }

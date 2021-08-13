@@ -16,7 +16,6 @@ use reqwest::{
 use std::{
     collections::HashMap,
     error::Error,
-    fs::File,
     str::FromStr,
     time,
 };
@@ -79,19 +78,19 @@ pub fn get_sync_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Erro
             info!("Adding new trusted certificate {}", &config.ssl.certificate);
             client_builder = client_builder.add_root_certificate(cert);
         }
-    }
 
-    if config.ssl.keystore != "" {
-        let ks = get_identity(&config.ssl.keystore, &config.ssl.keystore_password)?;
-        info!("Adding new keystore {}", &config.ssl.keystore);
-        client_builder = client_builder.identity(ks);
+        if config.ssl.keystore != "" {
+            let ks = get_identity(&config.ssl.keystore, &config.ssl.keystore_password)?;
+            info!("Adding new keystore {}", &config.ssl.keystore);
+            client_builder = client_builder.identity(ks);
+        }
     }
-    
 
     Ok(client_builder.build()?)
 }
 
-fn get_header_map_from_request(request: &scenarios::Request) -> Result<HeaderMap, Box<dyn Error + Send + Sync>> {
+fn get_header_map_from_request(request: &scenarios::Request) 
+-> Result<HeaderMap, Box<dyn Error + Send + Sync>> {
     let mut headers = HeaderMap::new();
     for header in &request.headers {
         headers.insert(HeaderName::from_str(header.0.as_str().unwrap())?, 
@@ -101,7 +100,8 @@ fn get_header_map_from_request(request: &scenarios::Request) -> Result<HeaderMap
     Ok(headers)
 }
 
-fn add_multipart_form_data(builder: RequestBuilder, body: scenarios::Body) -> RequestBuilder {
+fn add_multipart_form_data(builder: RequestBuilder, body: scenarios::Body) 
+-> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
     let mut form = Form::new();
 
     for data in body.formdata.clone() {
@@ -109,13 +109,17 @@ fn add_multipart_form_data(builder: RequestBuilder, body: scenarios::Body) -> Re
         let param_value = data.1.as_str().unwrap().to_string();
 
         if param_key.to_lowercase().starts_with("_file") {
-            //form = form.part("file", Part::param_value).unwrap();
+            let contents = file::get_content(&param_value)?;
+            let file_name = file::get_file_name(&param_value)?;
+            let part = Part::stream(contents).file_name(file_name)
+                                .mime_str("application/octet-stream").unwrap();
+            form = form.part("", part);
         } else {
             form = form.text(param_key, param_value);
         }
     }
 
-    builder.multipart(form)
+    Ok(builder.multipart(form))
 }
 
 fn add_url_encoded_data(builder: RequestBuilder, body: scenarios::Body) -> RequestBuilder {
@@ -155,7 +159,7 @@ pub async fn execute(client: &Client, request: scenarios::Request) -> Result<(Re
     if body.raw != ""  {
         builder = builder.body(body.raw);
     } else if body.formdata.len() != 0 {
-        builder = add_multipart_form_data(builder, body);
+        builder = add_multipart_form_data(builder, body)?;
     } else if body.urlencoded.len() != 0 {
         builder = add_url_encoded_data(builder, body);
     } 

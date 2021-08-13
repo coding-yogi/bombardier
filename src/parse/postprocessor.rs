@@ -63,7 +63,7 @@ fn execute_gjson_path(jsonpath: &str, body: &str) -> Result<String, Box<dyn Erro
     };
 
     if val_from_jsonpath.is_empty() {
-        return Err(format!("unable to retrieve data using jsonpath {}", jsonpath).into());
+        return Err(format!("unable to retrieve data using jsonpath {} from body {}", jsonpath,  body).into());
     }
 
     let val_as_str = val_from_jsonpath[0].as_str().unwrap();
@@ -78,7 +78,7 @@ fn execute_xpath(xpath: &str, body: &str) -> Result<String, Box<dyn Error + 'sta
     
     let doc = match parser.parse_string(body) {
         Ok(doc) => doc,
-        Err(err) => return Err(format!("Unable to parse body for xpath {}: {}", xpath, err).into())
+        Err(err) => return Err(format!("Unable to parse body for xpath {} from body {}: {}", xpath, body, err).into())
     };
 
     let context = Context::new(&doc).unwrap();

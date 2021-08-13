@@ -1,21 +1,41 @@
 
 use crossbeam::channel::Sender;
 use log::*;
-use tokio::task;
 
 use std::{
     collections::HashMap,
-    sync::{
-        Arc, Mutex, 
-    }, 
-    thread
+    sync::Arc
 };
 
-use crate::{protocol::socket::BombardMessage, server::{rest, websocket}};
+use tokio::{
+    sync::Mutex,
+    task
+};
+
+use crate::{
+    bombardier::Bombardier,
+    server::hub::{rest, websocket}
+};
 
 pub struct Context {
     pub bombardiers_map: Arc<Mutex<HashMap<String, bool>>>,
-    pub transmitters_map: Arc<Mutex<HashMap<String, Sender<BombardMessage>>>>
+    pub transmitters_map: Arc<Mutex<HashMap<String, Sender<Bombardier>>>>
+}
+
+impl Context {
+    pub async fn get_total_nodes(&self) -> usize {  
+        //Check if nodes are available
+        info!("Checking whether nodes are available for execution");
+        let trasmitter_map_mg = self.transmitters_map.lock().await;
+        trasmitter_map_mg.len()  
+    }
+    
+    pub async fn get_currently_bombarding_nodes(&self) -> usize {  
+        //Check if nodes are available
+        info!("Getting currently bombarding nodes");
+        let bombardiers_map_mg = self.bombardiers_map.lock().await;
+        bombardiers_map_mg.iter().filter(|&entry| *(entry).1).count()
+    }
 }
 
 pub async fn serve(port: u16, ws_port: u16) -> Result<(), Box<dyn std::error::Error + 'static>> {
@@ -27,27 +47,16 @@ pub async fn serve(port: u16, ws_port: u16) -> Result<(), Box<dyn std::error::Er
 
     let context_clone = context_arc.clone();
 
-    let mut handles = vec![];
-
-    //Spawing websocket server
-    handles.push(thread::spawn(move ||{
-        match websocket::serve(ws_port, context_arc) {
+    //Spawing websocket server into separate thread
+    //let handle = 
+    task::spawn(async move {
+        match websocket::serve(ws_port, context_arc).await {
             Ok(_) => (),
             Err(err) => error!("error occurred in websocket connection {}", err)
         }
-    }));
+    });
 
-    handles.push(thread::spawn(move ||{
-        task::spawn(async move {
-            rest::serve(port, context_clone).await;
-        });
-    }));
-
-    // We may want to exist if any of the thread completes as there is no point in keeping other server running
-    //TODO: ^^
-    for handle in handles {
-        handle.join().unwrap();
-    }
+    rest::serve(port, context_clone).await;
 
     Ok(())
 }

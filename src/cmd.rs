@@ -1,8 +1,5 @@
 use clap::{Arg, App, ArgMatches, SubCommand};
-use log::{info, warn};
 use serde::{Serialize, Deserialize, Deserializer, de::Error};
-
-use crate::file;
 
 //ExecConfig is the model for execution configuration
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -87,7 +84,9 @@ pub struct Ssl {
 const CONFIG_ARG_NAME: &str = "config json file";
 pub const SERVER_PORT_ARG_NAME: &str = "server port";
 pub const SOCKET_PORT_ARG_NAME: &str = "websocket port";
+const HUB_ADDRESS_ARG_NAME: &str = "hub adress as <ip>::<port>";
 const REPORT_FILE_ARG_NAME: &str = "report file";
+
 const JSON_EXT: &str = ".json";
 const CSV_EXT: &str = ".csv";
 const YAML_EXT: &str = ".yml";
@@ -95,6 +94,7 @@ pub const DER_EXT: &str = ".der";
 pub const PEM_EXT: &str = ".pem";
 pub const P12_EXT: &str = ".p12";
 pub const PFX_EXT: &str = ".pfx";
+
 const DEFAULT_REPORT_FILE: &str = "report.csv";
 
 fn default_report_file() -> String {
@@ -140,22 +140,13 @@ pub fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
                     .help("Report file in csv format")))
         .subcommand(SubCommand::with_name("node")
                 .about("Starts bombardier as a node")
-                .arg(Arg::with_name(SOCKET_PORT_ARG_NAME)
-                    .short("p")
-                    .long("port")
+                .arg(Arg::with_name(HUB_ADDRESS_ARG_NAME)
+                    .short("h")
+                    .long("hub")
                     .takes_value(true)
-                    .required(true)
-                    .validator(|s: String| {
-                        match s.parse::<i32>() {
-                            Ok(_) => Ok(()),
-                            Err(_) => Err(String::from("Port should be an integer"))
-                        }
-                    }
-                )
-            )
-        )
-        .subcommand(SubCommand::with_name("serve")
-                .about("Starts bombardier as a web server")
+                    .required(true)))
+        .subcommand(SubCommand::with_name("hub")
+                .about("Starts bombardier as a hub server")
                 .args(&[
                     Arg::with_name(SERVER_PORT_ARG_NAME)
                     .short("p")
@@ -179,31 +170,13 @@ pub fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
                             Err(_) => Err(String::from("Socket port should be an integer"))
                         }
                     })
-                ])
+                ]
+            )
         )
 }
 
-fn get_config_from_file(config_file_path: String) -> Result<ExecConfig, Box<dyn std::error::Error>> {
-    info!("Parsing config file {}", config_file_path);
-    
-    let content = file::get_content(&config_file_path)?;
-    let config: ExecConfig = serde_json::from_str(&content)?;
-
-    if config.execution_time == 0 && config.iterations == 0 {
-        return Err("Both execution time and iterations cannot be 0".into());
-    }
-
-    if config.execution_time > 0 && config.iterations > 0 {
-        warn!("Both execution time and iterations values provided. Execution time will be ignored");
-    }
-
-    Ok(config)
-}
-
-pub fn get_config(subcommand_args: Option<&ArgMatches<>>) -> Result<ExecConfig, Box<dyn std::error::Error>> {
-    let config_file_path = arg_value_as_str(subcommand_args, CONFIG_ARG_NAME); 
-    let config = get_config_from_file(config_file_path)?;
-    Ok(config)
+pub fn get_config_file_path(subcommand_args: Option<&ArgMatches<>>) -> String {
+    arg_value_as_str(subcommand_args, CONFIG_ARG_NAME)
 }
 
 pub fn get_port(subcommand_args: Option<&ArgMatches<>>, name: &str) -> u16 {
@@ -212,6 +185,10 @@ pub fn get_port(subcommand_args: Option<&ArgMatches<>>, name: &str) -> u16 {
 
 pub fn get_report_file(subcommand_args: Option<&ArgMatches<>>) -> String {
     arg_value_as_str(subcommand_args, REPORT_FILE_ARG_NAME)
+}
+
+pub fn get_hub_address(subcommand_args: Option<&ArgMatches<>>) -> String {
+    arg_value_as_str(subcommand_args, HUB_ADDRESS_ARG_NAME)
 }
 
 fn check_non_zero <'de, D>(deserializer: D) -> Result<u64, D::Error> 

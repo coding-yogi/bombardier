@@ -3,9 +3,17 @@ use tungstenite::{accept, Error, Message};
 use uuid::Uuid;
 use tokio::runtime::Runtime;
 
-use std::{net::{TcpListener, TcpStream}, sync::{Arc, Mutex}};
+use std::{
+    net::{TcpListener, TcpStream}, 
+    sync::{Arc, Mutex}
+};
 
-use crate::{bombardier, parser, protocol::socket::WebSocketConn, report::stats, socket};
+use crate::{
+    bombardier, 
+    protocol::socket::WebSocketConn, 
+    report::stats, 
+    socket
+};
 
 pub fn serve(port: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let host = "127.0.0.1";
@@ -58,31 +66,14 @@ fn get_message(ws_client_arc: Arc<Mutex<Option<WebSocketConn<TcpStream>>>>) -> R
 fn handle_text_message(websocket_clone: Arc<Mutex<std::option::Option<socket::WebSocketConn<std::net::TcpStream>>>>, text_message: &str) 
 -> Result<(), Box<dyn std::error::Error + 'static>> {
 //fn handle_text_message(websocket_client: &mut socket::WebSocketClient<TcpStream>, text_message: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
-    let message: socket::BombardMessage = match serde_json::from_str(&text_message) { //Convert to socket message
+    let bombardier: bombardier::Bombardier = match serde_json::from_str(&text_message) { //Convert to socket message
         Ok(m) => m,
         Err(err) => {
             error!("Error while deserializing text to socket message: {}", err);
             return Err(err.into());
         }
     };
-
-    //Read data file
-    let vec_data_map = match parser::get_vec_data_map(&message.config.data_file) {
-        Ok(vec) => vec,
-        Err(err) => {
-            error!("Error occured while reading data file {} : {}", &message.config.data_file, err);
-            return Err(err.into());
-        }
-    };
     
-    //create an bombardier instance
-    let bombardier = bombardier::Bombardier {
-        config: message.config,
-        env_map: message.env_map,
-        requests: message.requests,
-        vec_data_map: vec_data_map
-    };
-
     //stats consumer
     let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket_clone);
 

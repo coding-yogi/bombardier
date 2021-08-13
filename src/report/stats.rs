@@ -3,13 +3,13 @@ use crossbeam::channel;
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
+use tokio::{net::TcpStream, sync::Mutex};
 
 use std::{
     collections::HashSet,
     fmt,
     fs,
-    sync::{Arc, Mutex},
-    thread,
+    sync::Arc
 };
 
 use crate::{
@@ -52,7 +52,7 @@ pub trait StatsWriter {
 pub struct StatsConsumer {}
 
 impl StatsConsumer {
-    pub fn new(config: &cmd::ExecConfig, websocket_arc: Arc<Mutex<std::option::Option<socket::WebSocketConn<std::net::TcpStream>>>>) -> (channel::Sender<Vec<Stats>>, thread::JoinHandle<()>) {
+    pub fn new(config: &cmd::ExecConfig, websocket_arc: Arc<Mutex<std::option::Option<socket::WebSocketSink<TcpStream>>>>) -> (channel::Sender<Vec<Stats>>, tokio::task::JoinHandle<()>) {
         let (tx, rx) = channel::unbounded();
         let mut csv_writer = icsv::CSVWriter::new(&config.report_file).unwrap();
         
@@ -62,27 +62,29 @@ impl StatsConsumer {
         let is_distributed = config.distributed;
         let is_influxdb_configured = config.influxdb.url != "";
 
-        let handle = thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+
+        let handle = rt.spawn(async move {
             loop {
                 match rx.recv() {
                     Ok(stats) => {
                         //check if distributed
                         if is_distributed {
-                            let mut ws_mtx_grd = websocket_arc.lock().unwrap();
+                            let mut ws_mtx_grd = websocket_arc.lock().await;
                             ws_mtx_grd.as_mut().unwrap().write_stats(&stats);
                         } else {
                             csv_writer.write_stats(&stats);
                         }
 
                         if is_influxdb_configured {
-                            let mut influx_writer_mg = influx_writer_arc.lock().unwrap();
+                            let mut influx_writer_mg = influx_writer_arc.lock().await;
                             influx_writer_mg.as_mut().unwrap().write_stats(&stats);
                         }
                     }
                     Err(_) => {
                         if is_distributed { //If distributed, channel has been closed explicitly, send done to distributor
-                            let mut ws_mtx_grd = websocket_arc.lock().unwrap();
-                            ws_mtx_grd.as_mut().unwrap().write(String::from("done"));
+                            let mut ws_mtx_grd = websocket_arc.lock().await;
+                            ws_mtx_grd.as_mut().unwrap().write(String::from("done")).await;
                         }               
                         break;
                     }

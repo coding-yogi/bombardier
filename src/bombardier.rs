@@ -1,11 +1,9 @@
 
 use chrono::{Utc, DateTime};
 use crossbeam::channel;
-use log::{debug, error, warn, trace};
-use tokio::{
-    task::spawn,
-    runtime::Runtime
-};
+use log::{debug, error, info, warn, trace};
+use serde::{Serialize, Deserialize};
+use tokio::task::spawn;
 
 use std::{
     collections::HashMap,
@@ -19,16 +17,61 @@ use crate::{
     cmd,
     file,
     model::scenarios,
-    parse::postprocessor,
+    parse::{parser, postprocessor},
     protocol::http,
     report::stats,
 };
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct  Bombardier {
     pub config: cmd::ExecConfig,
     pub env_map: HashMap<String, String>,
     pub requests: Vec<scenarios::Request>,
     pub vec_data_map: Vec<HashMap<String, String>>
+}
+
+impl Bombardier {
+    pub fn new(config: cmd::ExecConfig, env: String, scenarios: String, data: String) 
+    -> Result<Bombardier, Box<dyn std::error::Error>>  {
+
+        //prepare environment map
+        info!("Parsing env map");
+        let env_map = match parser::get_env_map(&env) {
+            Err(err) => {
+                error!("Error occured while parsing environments: {}", err);
+                return Err(err);
+            },
+            Ok(map) => map
+        };
+
+        //prepare scenarios
+        info!("Preparing bombardier attacks!");
+        let requests = match parser::parse_requests(scenarios, &env_map) {
+            Err(err) => {
+                error!("Error occured while parsing requests : {}", err);
+                return Err(err)
+            },
+            Ok(v) => v
+        };
+
+        //preparing data for attack
+        info!("Parsing attack data");
+        let vec_data_map = match parser::get_vec_data_map(data) {
+            Err(err) => {
+                error!("Error occured while parsing data  {}", err);
+                return Err(Box::new(err))
+            },
+            Ok(vec) => vec
+        };
+
+        //preparing bombardier
+        Ok(Bombardier {
+            config,
+            env_map,
+            requests,
+            vec_data_map
+        })
+    }
 }
 
 impl Bombardier {
