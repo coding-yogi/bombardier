@@ -172,7 +172,7 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
 
     //Parse config
     info!("Parsing config file content");
-    let config = match parser::parse_config_from_string(config_content) {
+    let mut config = match parser::parse_config_from_string(config_content) {
         Ok(config) => config,
         Err(err) => {
             let error = "Error occured while parsing config file";
@@ -180,6 +180,9 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
             return ErrorResponse::new(400, &error).get_warp_reply()
         }
     };
+
+    //set distributed to true
+    config.distributed = true;
 
     //Prepare bombardier message
     info!("Preparing bombardier message");

@@ -37,16 +37,9 @@ impl <T> WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
             Err(err) => error!("Error occured while sending close message to socket: {}", err)
         }
     }
-}
 
-impl <T> stats::StatsWriter for WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
-    fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(
-            async {
-                self.write(serde_json::to_string(&stats).unwrap()).await //check why json and not comma separated
-            }
-        )
+    pub async fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
+        self.write(serde_json::to_string(&stats).unwrap()).await //check why json and not comma separated
     }
 }
 
@@ -60,7 +53,10 @@ impl <T> WebSocketStream<T> where T: AsyncRead + AsyncWrite + Unpin {
     }
 
     pub async fn read(&mut self) -> Result<tungstenite::protocol::Message, tungstenite::error::Error> {
-        self.stream.next().await.unwrap()
+        match self.stream.next().await {
+            Some(some) => some,
+            None => Err(tungstenite::error::Error::AlreadyClosed)
+        }
     }
 }
 

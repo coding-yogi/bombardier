@@ -160,7 +160,8 @@ impl Bombardier {
                         }
                         thread::sleep(time::Duration::from_millis(think_time)); //wait per request delay
                     };
-
+                    
+                    info!("Writing stats data");
                     stats_sender_clone.send(vec_stats.clone()).unwrap();
                 }
             });

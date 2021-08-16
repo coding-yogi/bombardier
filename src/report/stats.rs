@@ -1,9 +1,11 @@
 use chrono::{Utc, DateTime, Duration};
 use crossbeam::channel;
+use log::debug;
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
-use tokio::{net::TcpStream, sync::Mutex};
+use tokio::{net::TcpStream, sync::Mutex, task};
+use tokio_tungstenite::MaybeTlsStream;
 
 use std::{
     collections::HashSet,
@@ -45,16 +47,18 @@ impl fmt::Display for Stats {
     }
 }
 
-pub trait StatsWriter {
+/*pub trait StatsWriter {
     fn write_stats(&mut self, stats: &Vec<Stats>);
-}
+}*/
 
 pub struct StatsConsumer {}
 
 impl StatsConsumer {
-    pub fn new(config: &cmd::ExecConfig, websocket_arc: Arc<Mutex<std::option::Option<socket::WebSocketSink<TcpStream>>>>) -> (channel::Sender<Vec<Stats>>, tokio::task::JoinHandle<()>) {
+    pub fn new(config: &cmd::ExecConfig, websocket_arc: 
+        Arc<Mutex<std::option::Option<socket::WebSocketSink<MaybeTlsStream<TcpStream>>>>>) 
+    -> (channel::Sender<Vec<Stats>>, tokio::task::JoinHandle<()>) {
+
         let (tx, rx) = channel::unbounded();
-        let mut csv_writer = icsv::CSVWriter::new(&config.report_file).unwrap();
         
         let influx_writer = influxdb::InfluxDBWriter::new(&config.influxdb, http::get_default_sync_client());
         let influx_writer_arc = Arc::new(Mutex::new(influx_writer));
@@ -62,18 +66,27 @@ impl StatsConsumer {
         let is_distributed = config.distributed;
         let is_influxdb_configured = config.influxdb.url != "";
 
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let opt_csv_writer;
+        if is_distributed {
+            opt_csv_writer = None
+        } else {
+            opt_csv_writer = Some(icsv::CSVWriter::new(&config.report_file).unwrap());
+        }
 
-        let handle = rt.spawn(async move {
+        let csv_writer_arc = Arc::new(Mutex::new(opt_csv_writer));
+
+        let handle = task::spawn(async move {
             loop {
                 match rx.recv() {
                     Ok(stats) => {
                         //check if distributed
+                        debug!("Received stats data");
                         if is_distributed {
                             let mut ws_mtx_grd = websocket_arc.lock().await;
-                            ws_mtx_grd.as_mut().unwrap().write_stats(&stats);
+                            ws_mtx_grd.as_mut().unwrap().write_stats(&stats).await;
                         } else {
-                            csv_writer.write_stats(&stats);
+                            let mut csv_mtx_grd = csv_writer_arc.lock().await;
+                            csv_mtx_grd.as_mut().unwrap().write_stats(&stats);
                         }
 
                         if is_influxdb_configured {

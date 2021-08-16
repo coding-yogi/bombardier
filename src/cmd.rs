@@ -46,9 +46,6 @@ pub struct ExecConfig {
     pub distributed: bool,
 
     #[serde(default)]
-    pub nodes: Vec<String>,
-
-    #[serde(default)]
     pub influxdb: InfluxDB,
 
     #[serde(default)]

@@ -54,16 +54,7 @@ impl InfluxDBWriter {
         })
     }
 
-    fn set_body_from_stats(&mut self, stats: &Vec<stats::Stats>) {
-        self.request.body.raw = stats.iter()
-            .map(|s| {format!("stats,request={} latency={},status={} {}",
-                s.name, s.latency, s.status, DateTime::parse_from_rfc3339(&s.timestamp).unwrap().timestamp_millis())})
-            .collect::<Vec<String>>().join("\n")
-    }
-}
-
-impl stats::StatsWriter for InfluxDBWriter {
-    fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
+    pub fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
 
         //Setting Body
         self.set_body_from_stats(&stats);
@@ -76,5 +67,12 @@ impl stats::StatsWriter for InfluxDBWriter {
                 Err(err) => error!("Error writing to influxdb: {}", err)
             };
         })
+    }
+
+    fn set_body_from_stats(&mut self, stats: &Vec<stats::Stats>) {
+        self.request.body.raw = stats.iter()
+            .map(|s| {format!("stats,request={} latency={},status={} {}",
+                s.name, s.latency, s.status, DateTime::parse_from_rfc3339(&s.timestamp).unwrap().timestamp_millis())})
+            .collect::<Vec<String>>().join("\n")
     }
 }
