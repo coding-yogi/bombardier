@@ -29,8 +29,8 @@ pub fn get_default_sync_client() -> Client {
         .expect("Unable to create default sync client")
 } 
 
-fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Send + Sync>> {
-    let cert = file::read_file(path)?;
+async fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Send + Sync>> {
+    let cert = file::read_file(path).await?;
     if path.to_lowercase().ends_with(cmd::DER_EXT) {
         return Ok(Certificate::from_der(&cert)?)
     } else if path.to_lowercase().ends_with(cmd::PEM_EXT) {
@@ -40,8 +40,8 @@ fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Send + Sy
     Err("Certificate should be in .pem or .der format".into())
 }
 
-fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn Error + Send + Sync>> {
-    let ks = file::read_file(path)?;
+async fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn Error + Send + Sync>> {
+    let ks = file::read_file(path).await?;
     if path.to_lowercase().ends_with(cmd::P12_EXT) || path.to_lowercase().ends_with(cmd::PFX_EXT) {
         return Ok(Identity::from_pkcs12_der(&ks, password)?)
     }
@@ -54,7 +54,7 @@ fn is_method_valid(method_name: &str) -> bool {
     !(method != "GET" && method != "POST" && method != "PUT" && method != "PATCH" && method != "OPTIONS")
 }
 
-pub fn get_sync_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Error + Send + Sync>> {
+pub async fn get_async_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Error + Send + Sync>> {
     let mut client_builder = Client::builder()
         .user_agent("bombardier")
         .use_native_tls();
@@ -74,13 +74,13 @@ pub fn get_sync_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Erro
         }
     
         if config.ssl.certificate != "" {
-            let cert = get_certificate(&config.ssl.certificate)?;
+            let cert = get_certificate(&config.ssl.certificate).await?;
             info!("Adding new trusted certificate {}", &config.ssl.certificate);
             client_builder = client_builder.add_root_certificate(cert);
         }
 
         if config.ssl.keystore != "" {
-            let ks = get_identity(&config.ssl.keystore, &config.ssl.keystore_password)?;
+            let ks = get_identity(&config.ssl.keystore, &config.ssl.keystore_password).await?;
             info!("Adding new keystore {}", &config.ssl.keystore);
             client_builder = client_builder.identity(ks);
         }
@@ -100,44 +100,44 @@ fn get_header_map_from_request(request: &scenarios::Request)
     Ok(headers)
 }
 
-fn add_multipart_form_data(builder: RequestBuilder, body: scenarios::Body) 
+async fn add_multipart_form_data(builder: RequestBuilder, body: &scenarios::Body) 
 -> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
     let mut form = Form::new();
 
-    for data in body.formdata.clone() {
-        let param_key = data.0.as_str().unwrap().to_string();
-        let param_value = data.1.as_str().unwrap().to_string();
+    for data in &body.formdata {
+        let param_key = data.0.as_str().unwrap();
+        let param_value = data.1.as_str().unwrap();
 
         if param_key.to_lowercase().starts_with("_file") {
-            let contents = file::get_content(&param_value)?;
-            let file_name = file::get_file_name(&param_value)?;
+            let contents = file::get_content(param_value).await?;
+            let file_name = file::get_file_name(param_value)?;
             let part = Part::stream(contents).file_name(file_name)
                                 .mime_str("application/octet-stream").unwrap();
             form = form.part("", part);
         } else {
-            form = form.text(param_key, param_value);
+            form = form.text(param_key.to_owned(), param_value.to_owned());
         }
     }
 
     Ok(builder.multipart(form))
 }
 
-fn add_url_encoded_data(builder: RequestBuilder, body: scenarios::Body) -> RequestBuilder {
+fn add_url_encoded_data(builder: RequestBuilder, body: &scenarios::Body) -> RequestBuilder {
     let mut params = HashMap::new();
 
-    for param in body.urlencoded {
-        let param_key = param.0.as_str().unwrap().to_string().clone();
-        let param_value = param.1.as_str().unwrap().to_string();
-        params.insert(param_key, param_value);
+    for param in &body.urlencoded {
+        let param_key = param.0.as_str().unwrap();
+        let param_value = param.1.as_str().unwrap();
+        params.insert(param_key.to_owned(), param_value.to_owned());
     }
 
     builder.form(&params)
 }
 
-pub async fn execute(client: &Client, request: scenarios::Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {
+pub async fn execute(client: &Client, request: &scenarios::Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {
    
     //Check if method is valid, else return error
-    let method_name = request.method.to_uppercase().clone();
+    let method_name = request.method.to_uppercase();
     let method = Method::from_bytes(method_name.as_bytes())?;
     if !is_method_valid(&method_name) {
         error!("Invalid method {} found for request {}", method_name, request.name);
@@ -154,12 +154,12 @@ pub async fn execute(client: &Client, request: scenarios::Request) -> Result<(Re
     let mut builder = client.request(method, &request.url).headers(headers);
 
     //Add required body
-    let body = request.body;
+    let body = &request.body;
 
     if body.raw != ""  {
-        builder = builder.body(body.raw);
+        builder = builder.body(body.raw.to_owned());
     } else if body.formdata.len() != 0 {
-        builder = add_multipart_form_data(builder, body)?;
+        builder = add_multipart_form_data(builder, body).await?;
     } else if body.urlencoded.len() != 0 {
         builder = add_url_encoded_data(builder, body);
     } 

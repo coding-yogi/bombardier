@@ -1,16 +1,18 @@
+use csv_async;
 use chrono::{Utc, DateTime, Duration};
 use crossbeam::channel;
 use log::debug;
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
 use serde::{Serialize, Deserialize};
-use tokio::{net::TcpStream, sync::Mutex, task};
+use tokio::{fs::{self, File}, net::TcpStream, sync::Mutex, task};
 use tokio_tungstenite::MaybeTlsStream;
+use futures::StreamExt;
 
 use std::{
     collections::HashSet,
     fmt,
-    fs,
+    option::Option,
     sync::Arc
 };
 
@@ -18,7 +20,7 @@ use crate::{
     cmd,
     file,
     protocol::http,
-    report::{influxdb, csv as icsv},
+    report::{influxdb, csv},
     socket,
 };
 
@@ -47,15 +49,11 @@ impl fmt::Display for Stats {
     }
 }
 
-/*pub trait StatsWriter {
-    fn write_stats(&mut self, stats: &Vec<Stats>);
-}*/
-
 pub struct StatsConsumer {}
 
 impl StatsConsumer {
-    pub fn new(config: &cmd::ExecConfig, websocket_arc: 
-        Arc<Mutex<std::option::Option<socket::WebSocketSink<MaybeTlsStream<TcpStream>>>>>) 
+    pub async fn new(config: &cmd::ExecConfig, websocket_arc: 
+        Arc<Mutex<Option<socket::WebSocketSink<MaybeTlsStream<TcpStream>>>>>) 
     -> (channel::Sender<Vec<Stats>>, tokio::task::JoinHandle<()>) {
 
         let (tx, rx) = channel::unbounded();
@@ -70,7 +68,7 @@ impl StatsConsumer {
         if is_distributed {
             opt_csv_writer = None
         } else {
-            opt_csv_writer = Some(icsv::CSVWriter::new(&config.report_file).unwrap());
+            opt_csv_writer = Some(csv::CSVWriter::new(&config.report_file).await.unwrap());
         }
 
         let csv_writer_arc = Arc::new(Mutex::new(opt_csv_writer));
@@ -86,12 +84,12 @@ impl StatsConsumer {
                             ws_mtx_grd.as_mut().unwrap().write_stats(&stats).await;
                         } else {
                             let mut csv_mtx_grd = csv_writer_arc.lock().await;
-                            csv_mtx_grd.as_mut().unwrap().write_stats(&stats);
+                            csv_mtx_grd.as_mut().unwrap().write_stats(&stats).await;
                         }
 
                         if is_influxdb_configured {
                             let mut influx_writer_mg = influx_writer_arc.lock().await;
-                            influx_writer_mg.as_mut().unwrap().write_stats(&stats);
+                            influx_writer_mg.as_mut().unwrap().write_stats(&stats).await;
                         }
                     }
                     Err(_) => {
@@ -109,9 +107,9 @@ impl StatsConsumer {
     }
 }
 
-pub fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let file = file::get_file(report_file)?;
-    let (names, stats) = get_stats(&file)?;
+pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let file = file::get_file(report_file).await?;
+    let (names, stats) = get_stats(file).await?;
 
     let mut table = Table::new();
     table.add_row(row![FY => "Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "90%", "95%", "99%", "Errors", "Error Rate"]);
@@ -150,15 +148,19 @@ pub fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn get_stats(report_file: &fs::File) -> Result<(HashSet<String>, Vec<Stats>), csv::Error> {
+async fn get_stats(report_file: fs::File) -> Result<(HashSet<String>, Vec<Stats>), csv_async::Error> {
     let mut stats: Vec<Stats> = Vec::new();
     let mut names: HashSet<String> = HashSet::new();
 
-    let mut reader = csv::ReaderBuilder::new().has_headers(true).trim(csv::Trim::All).from_reader(report_file);
-    let records_iter = reader.deserialize();
+    let mut reader: csv_async::AsyncReader<File> = csv_async::AsyncReaderBuilder::new()
+        .has_headers(true)
+        .trim(csv_async::Trim::All)
+        .create_reader(report_file);
+
+    let mut records_iter = reader.records();
     
-    for stat in records_iter {
-        let s: Stats = stat?;
+    for stat in records_iter.next().await {
+        let s: Stats = stat.unwrap().deserialize(None)?;
         if !names.contains(&s.name) {
             names.insert(s.name.clone());
         }

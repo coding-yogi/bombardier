@@ -54,19 +54,14 @@ impl InfluxDBWriter {
         })
     }
 
-    pub fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
-
+    pub async fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
         //Setting Body
         self.set_body_from_stats(&stats);
 
-        let rt = tokio::runtime::Runtime::new().unwrap();
-
-        rt.block_on(async move {
-            match http::execute(&self.client, self.request.clone()).await {
-                Ok(_res) => (),
-                Err(err) => error!("Error writing to influxdb: {}", err)
-            };
-        })
+        match http::execute(&self.client, &self.request).await {
+            Ok(_res) => (),
+            Err(err) => error!("Error writing to influxdb: {}", err)
+        };
     }
 
     fn set_body_from_stats(&mut self, stats: &Vec<stats::Stats>) {

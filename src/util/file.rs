@@ -1,45 +1,24 @@
-use log::error;
-
-use std::{
+use tokio:: {
     fs,
-    io::Error,
-    collections::HashMap
+    io::Error
 };
 
-pub fn get_content(path: &str) -> Result<String, Error> {
-    let file = fs::read_to_string(path);
-    if file.is_err() {
-        error!("Could not read file from path {}", path);
-    }
+use std::collections::HashMap;
 
-    file
+pub async fn get_content(path: &str) -> Result<String, Error> {
+    Ok(fs::read_to_string(path).await?)
 }
 
-pub fn create_file(path: &str) -> Result<fs::File, Error> {
-    let file = fs::File::create(path);
-    if file.is_err() {
-        error!("Could not create file on path {}", path);
-    }
-
-    file
+pub async fn create_file(path: &str) -> Result<fs::File, Error> {
+    fs::File::create(path).await
 }
 
-pub fn read_file(path: &str) -> Result<Vec<u8>, Error> {
-    let file = fs::read(path);
-    if file.is_err() {
-        error!("Could not read file on path {}", path);
-    }
-
-    file
+pub async fn read_file(path: &str) -> Result<Vec<u8>, Error> {
+    fs::read(path).await
 }
 
-pub fn get_file(path: &str) -> Result<fs::File, Error> {
-    let file = fs::File::open(path);
-    if file.is_err() {
-        error!("Could not open file on path {}", path);
-    }
-
-    file
+pub async fn get_file(path: &str) -> Result<fs::File, Error> {
+    fs::File::open(path).await
 }
 
 pub fn get_file_name(path: &str) -> Result<String, Error> {

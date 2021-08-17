@@ -5,7 +5,6 @@ mod parse;
 mod protocol;
 mod report;
 mod server;
-mod scale;
 mod util;
 
 use log::{info, error};
@@ -38,7 +37,7 @@ async fn main()  {
             let config_file_path = cmd::get_config_file_path(subcommand_args);
             info!("Parsing config file {}", config_file_path);
 
-            let config_content = match file::get_content(&config_file_path) {
+            let config_content = match file::get_content(&config_file_path).await {
                 Err(_) => return,
                 Ok(content) => content
             };
@@ -49,7 +48,7 @@ async fn main()  {
             let mut env_content = String::new();
             if config.environment_file != "" {
                 info!("Reading environments file {}", config.environment_file);
-                env_content = match file::get_content(&config.environment_file) {
+                env_content = match file::get_content(&config.environment_file).await {
                     Ok(content) => content,
                     Err(_) => return
                 };
@@ -57,7 +56,7 @@ async fn main()  {
 
             //get content of scenario file
             info!("Reading scenarios file {}", &config.scenarios_file);
-            let scenarios_content = match file::get_content(&config.scenarios_file) {
+            let scenarios_content = match file::get_content(&config.scenarios_file).await {
                 Err(_) => return,
                 Ok(content) => content
             };
@@ -67,7 +66,7 @@ async fn main()  {
             let data_file = &config.data_file;
             if data_file != "" {
                 info!("Reading data file {}", data_file);
-                data_content = match file::get_content(&data_file) {
+                data_content = match file::get_content(&data_file).await {
                     Ok(content) => content,
                     Err(_) => return
                 };
@@ -76,10 +75,10 @@ async fn main()  {
             //prepare bombardier
             info!("Prepare bombardier");
             let bombardier = 
-                    Bombardier::new(config, env_content, scenarios_content, data_content).unwrap();
+                    Bombardier::new(config, env_content, scenarios_content, data_content).await.unwrap();
             
             let websocket = Arc::new(Mutex::new(None));
-            let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket);
+            let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket).await;
 
             info!("Bombarding !!!");
             match bombardier.bombard(stats_sender).await {
@@ -94,7 +93,7 @@ async fn main()  {
             let report_file = cmd::get_report_file(subcommand_args);
 
             info!("Generating report");
-            match stats::display(&report_file) {
+            match stats::display(&report_file).await {
                 Err(err) => {
                     error!("Error while displaying reports : {}", err);
                     return;

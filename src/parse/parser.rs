@@ -1,4 +1,6 @@
+use csv_async;
 use log::{error, warn};
+use futures::StreamExt;
 
 use std::{
     collections::HashMap,
@@ -56,19 +58,24 @@ pub fn get_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Err
     Ok(env_map)
 }
 
-pub fn get_vec_data_map(data_content: String) -> Result<Vec<HashMap<String, String>>, csv::Error> {
-    let mut reader = csv::ReaderBuilder::new()
+pub async fn get_vec_data_map(data_content: String) -> Result<Vec<HashMap<String, String>>, csv_async::Error> {
+
+    if data_content == "" {
+        return Ok(Vec::<HashMap<String, String>>::new())
+    }
+
+    let mut reader = csv_async::AsyncReaderBuilder::new()
         .has_headers(false)
-        .trim(csv::Trim::All)
-        .from_reader(data_content.as_bytes());
+        .trim(csv_async::Trim::All)
+        .create_reader(data_content.as_bytes());
 
     let mut records_iterator = reader.records();
 
-    let headers: Vec<String> = match records_iterator.next() {
+    let headers= match records_iterator.next().await {
         Some(item) => {
             match item {
                 Ok(item) => item.iter()
-                .map(|s| s.to_string())
+                .map(|s| s.to_owned())
                 .collect(),
                 Err(err) => return Err(err)
             }
@@ -79,9 +86,9 @@ pub fn get_vec_data_map(data_content: String) -> Result<Vec<HashMap<String, Stri
     let vec_data_map = records_iterator.map(|record| {
         headers.iter()
             .zip(record.unwrap().iter())
-            .map(|(k,v)| (k.clone(), v.to_string()))
-            .collect()
-    }).collect();
+            .map(|(k,v)| (k.to_owned(), v.to_owned()))
+            .collect::<HashMap<String, String>>()
+    }).collect::<Vec<HashMap<String, String>>>().await;
     
     Ok(vec_data_map)
 }

@@ -44,7 +44,7 @@ pub async fn start(hub_address: String) -> Result<(), Box<dyn std::error::Error 
             //check is bombardier message
             if let Some(b) = is_bombard_message(text_msg) {
                 let (stats_sender,  stats_receiver_handle) = 
-                    StatsConsumer::new(&b.config,sink_arc.clone());
+                    StatsConsumer::new(&b.config,sink_arc.clone()).await;
 
                 info!("Bombarding !!!");
                 match b.bombard(stats_sender).await {

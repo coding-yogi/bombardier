@@ -1,4 +1,3 @@
-
 use chrono::{Utc, DateTime};
 use crossbeam::channel;
 use log::{debug, error, info, warn, trace};
@@ -14,12 +13,15 @@ use std::{
 };
 
 use crate::{
-    cmd,
-    file,
-    model::scenarios,
-    parse::{parser, postprocessor},
-    protocol::http,
-    report::stats,
+    cmd, 
+    file, 
+    model::scenarios, 
+    parse::{
+        parser, 
+        postprocessor
+    }, 
+    protocol::http, 
+    report::stats
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -31,7 +33,7 @@ pub struct  Bombardier {
 }
 
 impl Bombardier {
-    pub fn new(config: cmd::ExecConfig, env: String, scenarios: String, data: String) 
+    pub async fn new(config: cmd::ExecConfig, env: String, scenarios: String, data: String) 
     -> Result<Bombardier, Box<dyn std::error::Error>>  {
 
         //prepare environment map
@@ -56,7 +58,7 @@ impl Bombardier {
 
         //preparing data for attack
         info!("Parsing attack data");
-        let vec_data_map = match parser::get_vec_data_map(data) {
+        let vec_data_map = match parser::get_vec_data_map(data).await {
             Err(err) => {
                 error!("Error occured while parsing data  {}", err);
                 return Err(Box::new(err))
@@ -84,7 +86,7 @@ impl Bombardier {
         let think_time = self.config.think_time;
         let continue_on_error = self.config.continue_on_error;
     
-        let client_arc = Arc::new(http::get_sync_client(&self.config)?);
+        let client_arc = Arc::new(http::get_async_client(&self.config).await?);
         let requests = Arc::new(self.requests.clone());
        
         let data_count = self.vec_data_map.len();
@@ -132,10 +134,10 @@ impl Bombardier {
                     
                     //looping thru requests
                     for request in requests_clone.deref() {
-                        let processed_request = preprocess(&request, &env_map_clone); //transform request
+                        let processed_request = preprocess(request.to_owned(), &env_map_clone); //transform request
                         trace!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
 
-                        match http::execute(&client_clone, processed_request).await {
+                        match http::execute(&client_clone, &processed_request).await {
                             Ok((response, latency)) => {
                                 let new_stats = stats::Stats::new(&request.name, response.status().as_u16(), latency);
                                 vec_stats.push(new_stats); //Add stats to vector
@@ -161,8 +163,7 @@ impl Bombardier {
                         thread::sleep(time::Duration::from_millis(think_time)); //wait per request delay
                     };
                     
-                    info!("Writing stats data");
-                    stats_sender_clone.send(vec_stats.clone()).unwrap();
+                    stats_sender_clone.send(vec_stats).unwrap();
                 }
             });
 
@@ -192,15 +193,15 @@ fn is_failed_request(status: u16) -> bool {
     status > 399
 }
 
-fn preprocess(request: &scenarios::Request, env_map: &HashMap<String, String>) -> scenarios::Request {
-    let mut s_request = serde_json::to_string(request).expect("Request cannot be serialized");
+fn preprocess(request: scenarios::Request, env_map: &HashMap<String, String>) -> scenarios::Request {
+    let mut s_request = serde_json::to_string(&request).expect("Request cannot be serialized");
     s_request = file::param_substitution(s_request, &env_map);
     match serde_json::from_str(&s_request) {
         Ok(r) => r,
         Err(err) => {
             error!("Unable to deserialize request object after parameter replacement. Returning original request");
             error!("String: {}, Error: {}", s_request, err);
-            request.clone()
+            request
         }
     }
 }
