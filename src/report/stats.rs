@@ -158,9 +158,11 @@ async fn get_stats(report_file: fs::File) -> Result<(HashSet<String>, Vec<Stats>
         .create_reader(report_file);
 
     let mut records_iter = reader.records();
+
+    let header = csv_async::StringRecord::from(vec!["timestamp", "status", "latency", "name", ]);
     
     for stat in records_iter.next().await {
-        let s: Stats = stat.unwrap().deserialize(None)?;
+        let s: Stats = stat.unwrap().deserialize(Some(&header)).unwrap();
         if !names.contains(&s.name) {
             names.insert(s.name.clone());
         }
