@@ -87,7 +87,7 @@ impl Bombardier {
         let continue_on_error = self.config.continue_on_error;
     
         let client_arc = Arc::new(http::get_async_client(&self.config).await?);
-        let requests = Arc::new(self.requests.clone());
+        let requests = Arc::new(self.requests.to_owned());
        
         let data_count = self.vec_data_map.len();
         let vec_data_map_arc = Arc::new(self.vec_data_map.clone());
