@@ -5,14 +5,14 @@ use serde_yaml::{Mapping, Value};
 
 use crate::{
     cmd,
-    model::scenarios,
+    model,
     protocol::http,
     report::stats,
 };
 
 pub struct InfluxDBWriter {
     pub client: Client,
-    request: scenarios::Request,
+    request: model::Request,
 }
 
 impl InfluxDBWriter {
@@ -24,10 +24,12 @@ impl InfluxDBWriter {
         }
 
         //Setting URL
-        let mut url = format!("{}/write?db={}&precision=ms", influxdb.url, influxdb.dbname);
+        let mut str_url = format!("{}/write?db={}&precision=ms", influxdb.url, influxdb.dbname);
         if influxdb.username != "" {
-            url =  format!("{}&u={}&p={}", url, influxdb.username, influxdb.password);
+            str_url =  format!("{}&u={}&p={}", str_url, influxdb.username, influxdb.password);
         }
+
+        let url = url::Url::parse(&str_url).unwrap();
 
         //Setting headers
         let mut headers = serde_yaml::Mapping::with_capacity(1);
@@ -35,26 +37,22 @@ impl InfluxDBWriter {
 
         Some(InfluxDBWriter {
             client: client,
-            request: scenarios::Request {
+            request: model::Request {
                 name: String::from("postToInfluxDB"),
                 url: url,
                 method: String::from("POST"),
-                body: scenarios::Body {
+                body: model::Body {
                     formdata: Mapping::with_capacity(0),
                     urlencoded: Mapping::with_capacity(0),
                     raw: String::from(""),
                 },
                 headers: headers,
-                extractor: scenarios::Extractor {
-                    gjson_path: Mapping::with_capacity(0),
-                    xpath: Mapping::with_capacity(0),
-                    regex: Mapping::with_capacity(0)
-                }
+                extractors: vec![]
             }
         })
     }
 
-    pub async fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
+    pub async fn write_stats(&mut self, stats: &[stats::Stats]) {
         //Setting Body
         self.set_body_from_stats(&stats);
 
@@ -64,7 +62,7 @@ impl InfluxDBWriter {
         };
     }
 
-    fn set_body_from_stats(&mut self, stats: &Vec<stats::Stats>) {
+    fn set_body_from_stats(&mut self, stats: &[stats::Stats]) {
         self.request.body.raw = stats.iter()
             .map(|s| {format!("stats,request={} latency={},status={} {}",
                 s.name, s.latency, s.status, DateTime::parse_from_rfc3339(&s.timestamp).unwrap().timestamp_millis())})

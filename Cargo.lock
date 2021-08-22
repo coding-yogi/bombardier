@@ -103,7 +103,7 @@ dependencies = [
  "csv-async",
  "flexi_logger",
  "futures",
- "jsonpath_lib",
+ "gjson",
  "libxml",
  "log",
  "native-tls",
@@ -636,6 +636,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gjson"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4599d0e9dce476280e2da1f334811e2b26d63a6b000e13b7b50cc980bae49698"
+
+[[package]]
 name = "glob"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -826,17 +832,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce791b7ca6638aae45be056e068fc756d871eb3b3b10b8efa62d1c9cec616752"
 dependencies = [
  "wasm-bindgen",
-]
-
-[[package]]
-name = "jsonpath_lib"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaa63191d68230cccb81c5aa23abd53ed64d83337cacbb25a7b8c7979523774f"
-dependencies = [
- "log",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -1519,7 +1514,6 @@ version = "1.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "336b10da19a12ad094b59d870ebde26a45402e5b470add4b5fd03c5048a32127"
 dependencies = [
- "indexmap",
  "itoa",
  "ryu",
  "serde",
@@ -2009,6 +2003,7 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]

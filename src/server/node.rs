@@ -41,19 +41,20 @@ pub async fn start(hub_address: String) -> Result<(), Box<dyn std::error::Error 
         if msg.is_text() { //Handle only text messages
             let text_msg = msg.to_text().unwrap();
 
-            //check is bombardier message
-            if let Some(b) = is_bombard_message(text_msg) {
-                let (stats_sender,  stats_receiver_handle) = 
-                    StatsConsumer::new(&b.config,sink_arc.clone()).await;
+            let b = match is_bombard_message(text_msg)  {
+                Some(b) => b,
+                None =>  return Err("Bombarding message not received".into())
+            };
 
-                info!("Bombarding !!!");
-                match b.bombard(stats_sender).await {
-                    Err(err) => error!("Bombarding failed : {}", err),
-                    Ok(()) => info!("Bombarding Complete. Run report command to get details")
-                }   
-    
-                stats_receiver_handle.await.unwrap();
+            let (stats_sender,  stats_receiver_handle) = 
+            StatsConsumer::new(&b.config,sink_arc.clone()).await;
+
+            match b.bombard(stats_sender).await {
+                Err(err) => error!("Bombarding failed : {}", err),
+                Ok(()) => info!("Bombarding Complete. Run report command to get details")
             }
+        
+            stats_receiver_handle.await.unwrap();
         }
     } 
 }

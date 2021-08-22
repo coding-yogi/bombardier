@@ -12,11 +12,11 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-    bombardier::Bombardier,
-    parse::parser,
-    protocol::socket,
-    report::stats,
-    util::{logger, file},
+    bombardier::Bombardier, 
+    parse::parser, 
+    protocol::socket, 
+    report::stats, 
+    util::{logger, file}
 };
 
 #[tokio::main]
@@ -72,13 +72,12 @@ async fn main()  {
                 };
             }
 
-            //prepare bombardier
             info!("Prepare bombardier");
             let bombardier = 
                     Bombardier::new(config, env_content, scenarios_content, data_content).await.unwrap();
             
-            let websocket = Arc::new(Mutex::new(None));
-            let (stats_sender,  stats_receiver_handle) = stats::StatsConsumer::new(&bombardier.config, websocket).await;
+            let (stats_sender,  stats_receiver_handle) = 
+            stats::StatsConsumer::new(&bombardier.config, Arc::new(Mutex::new(None))).await;
 
             info!("Bombarding !!!");
             match bombardier.bombard(stats_sender).await {
@@ -93,7 +92,7 @@ async fn main()  {
             let report_file = cmd::get_report_file(subcommand_args);
 
             info!("Generating report");
-            match stats::display(&report_file).await {
+            match report::display(&report_file).await {
                 Err(err) => {
                     error!("Error while displaying reports : {}", err);
                     return;
@@ -104,6 +103,7 @@ async fn main()  {
         "node" => {
             info!("Starting bombardier as a node");
             let hub_address = cmd::get_hub_address(subcommand_args);
+
             match  server::node::start(hub_address).await {
                 Err(err) => {
                     error!("Error occured in the node : {}", err);

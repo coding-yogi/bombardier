@@ -1,15 +1,14 @@
 
 use futures::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
 use log::*;
-use tungstenite::{
-    Message,
-};
-
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_tungstenite::{
     connect_async,
     MaybeTlsStream,
     WebSocketStream as TTWebSocketStream
+};
+use tungstenite::{
+    Message,
 };
 
 use crate::report::stats;
@@ -31,14 +30,7 @@ impl <T> WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
         }
     }
 
-    pub async fn close(&mut self) {
-        match self.sink.send(Message::Close(None)).await {
-            Ok(_) => (),
-            Err(err) => error!("Error occured while sending close message to socket: {}", err)
-        }
-    }
-
-    pub async fn write_stats(&mut self, stats: &Vec<stats::Stats>) {
+    pub async fn write_stats(&mut self, stats: &[stats::Stats]) {
         self.write(serde_json::to_string(&stats).unwrap()).await //check why json and not comma separated
     }
 }

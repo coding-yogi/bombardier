@@ -2,20 +2,21 @@ use chrono::{Utc, DateTime};
 use crossbeam::channel;
 use log::{debug, error, info, warn, trace};
 use serde::{Serialize, Deserialize};
-use tokio::task::spawn;
+use tokio::{
+    sync::Mutex,
+    task::spawn,
+    time
+};
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
-    thread, 
-    time,
-    ops::Deref,
+    sync::Arc
 };
 
 use crate::{
     cmd, 
     file, 
-    model::scenarios, 
+    model::Request, 
     parse::{
         parser, 
         postprocessor
@@ -24,11 +25,12 @@ use crate::{
     report::stats
 };
 
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct  Bombardier {
     pub config: cmd::ExecConfig,
     pub env_map: HashMap<String, String>,
-    pub requests: Vec<scenarios::Request>,
+    pub requests: Vec<Request>,
     pub vec_data_map: Vec<HashMap<String, String>>
 }
 
@@ -61,7 +63,7 @@ impl Bombardier {
         let vec_data_map = match parser::get_vec_data_map(data).await {
             Err(err) => {
                 error!("Error occured while parsing data  {}", err);
-                return Err(Box::new(err))
+                return Err(err)
             },
             Ok(vec) => vec
         };
@@ -80,9 +82,8 @@ impl Bombardier {
     pub async fn bombard(&self, stats_sender: channel::Sender<Vec<stats::Stats>>)
     -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         
-        let no_of_threads = self.config.thread_count;
         let no_of_iterations = self.config.iterations;
-        let thread_delay = self.config.rampup_time * 1000 / no_of_threads;
+        let thread_delay = self.config.rampup_time * 1000 / self.config.thread_count;
         let think_time = self.config.think_time;
         let continue_on_error = self.config.continue_on_error;
     
@@ -101,10 +102,10 @@ impl Bombardier {
         let start_time = Utc::now();
         let execution_time = self.config.execution_time;
 
-        for thread_cnt in 0..no_of_threads {
+        for thread_cnt in 0..self.config.thread_count {
             let requests_clone = requests.clone();
             let client_clone = client_arc.clone();
-            let mut env_map_clone = self.env_map.clone();
+            let mut env_map_clone = self.env_map.clone(); //every thread will mutate this map as per runtime values
             let vec_data_map_clone = vec_data_map_arc.clone();
             let data_counter_clone = data_counter_arc.clone();
             let stats_sender_clone = stats_sender_arc.clone();
@@ -122,18 +123,21 @@ impl Bombardier {
                     }
 
                     thread_iteration += 1; //increment iteration
-                    let mut vec_stats = vec![];
+
+                    let mut vec_stats = Vec::with_capacity(requests_clone.len());
 
                     //get data set
                     if data_count > 0 {
-                        let mut data_couter_mg = data_counter_clone.lock().unwrap();
+                        let mut data_couter_mg = data_counter_clone.lock().await;
                         let data_map = get_data_map(&vec_data_map_clone, &mut data_couter_mg, data_count);
-                        env_map_clone.extend(data_map.into_iter().map(|(k, v)| (k.clone(), v.clone())));
+                        drop(data_couter_mg);
+
+                        env_map_clone.extend(data_map.iter().map(|(k, v)| (k.clone(), v.clone())));
                         debug!("data used for {}-{} : {:?}", thread_cnt, thread_iteration, data_map);
                     }
                     
                     //looping thru requests
-                    for request in requests_clone.deref() {
+                    for request in requests_clone.iter() {
                         let processed_request = preprocess(request.to_owned(), &env_map_clone); //transform request
                         trace!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
 
@@ -147,7 +151,7 @@ impl Bombardier {
                                     break;
                                 }
 
-                                match postprocessor::process(response, &request, &mut env_map_clone).await { //process response and update env_map
+                                match postprocessor::process(response, &request.extractors, &mut env_map_clone).await { //process response and update env_map
                                     Err(err) => error!("Error occurred while post processing response for request {} : {}", &request.name, err),
                                     Ok(()) => ()
                                 }
@@ -160,15 +164,15 @@ impl Bombardier {
                                 }
                             }
                         }
-                        thread::sleep(time::Duration::from_millis(think_time)); //wait per request delay
+                        time::sleep(time::Duration::from_millis(think_time)).await; //wait per request delay
                     };
                     
-                    stats_sender_clone.send(vec_stats).unwrap();
+                    stats_sender_clone.try_send(vec_stats).unwrap();
                 }
             });
 
             handles.push(handle);
-            thread::sleep(time::Duration::from_millis(thread_delay)); //wait per thread delay
+            time::sleep(time::Duration::from_millis(thread_delay)).await; //wait per thread delay
         }
 
         futures::future::join_all(handles).await;
@@ -193,7 +197,7 @@ fn is_failed_request(status: u16) -> bool {
     status > 399
 }
 
-fn preprocess(request: scenarios::Request, env_map: &HashMap<String, String>) -> scenarios::Request {
+fn preprocess(request: Request, env_map: &HashMap<String, String>) -> Request {
     let mut s_request = serde_json::to_string(&request).expect("Request cannot be serialized");
     s_request = file::param_substitution(s_request, &env_map);
     match serde_json::from_str(&s_request) {

@@ -1,4 +1,4 @@
-use log::{error, info, warn};
+use log::{info, warn};
 use reqwest::{
     Client, 
     Response, 
@@ -20,7 +20,7 @@ use std::{
     time,
 };
 
-use crate::{cmd, file, model::scenarios};
+use crate::{cmd, file, model::{Request, Body}};
 
 pub fn get_default_sync_client() -> Client {
     Client::builder()
@@ -89,7 +89,7 @@ pub async fn get_async_client(config: &cmd::ExecConfig)  -> Result<Client, Box<d
     Ok(client_builder.build()?)
 }
 
-fn get_header_map_from_request(request: &scenarios::Request) 
+fn get_header_map_from_request(request: &Request) 
 -> Result<HeaderMap, Box<dyn Error + Send + Sync>> {
     let mut headers = HeaderMap::new();
     for header in &request.headers {
@@ -100,7 +100,7 @@ fn get_header_map_from_request(request: &scenarios::Request)
     Ok(headers)
 }
 
-async fn add_multipart_form_data(builder: RequestBuilder, body: &scenarios::Body) 
+async fn add_multipart_form_data(builder: RequestBuilder, body: &Body) 
 -> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
     let mut form = Form::new();
 
@@ -122,26 +122,23 @@ async fn add_multipart_form_data(builder: RequestBuilder, body: &scenarios::Body
     Ok(builder.multipart(form))
 }
 
-fn add_url_encoded_data(builder: RequestBuilder, body: &scenarios::Body) -> RequestBuilder {
-    let mut params = HashMap::new();
+fn add_url_encoded_data(builder: RequestBuilder, body: &Body) -> RequestBuilder {
+    let mut params = HashMap::with_capacity(body.urlencoded.len());
 
-    for param in &body.urlencoded {
-        let param_key = param.0.as_str().unwrap();
-        let param_value = param.1.as_str().unwrap();
-        params.insert(param_key.to_owned(), param_value.to_owned());
-    }
+    &body.urlencoded.iter().for_each(|(k,v)| {
+        params.insert(k.as_str().unwrap().to_owned(), v.as_str().unwrap().to_owned());
+    });
 
     builder.form(&params)
 }
 
-pub async fn execute(client: &Client, request: &scenarios::Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {
+pub async fn execute(client: &Client, request: &Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {
    
     //Check if method is valid, else return error
-    let method_name = request.method.to_uppercase();
-    let method = Method::from_bytes(method_name.as_bytes())?;
+    let method_name = &request.method.to_uppercase();
+    let method = Method::from_str(method_name)?;
     if !is_method_valid(&method_name) {
-        error!("Invalid method {} found for request {}", method_name, request.name);
-        return Err("Invalid method".into())
+        return Err(format!("Invalid method {} found for request {}", method_name, request.name).into())
     }
 
     //Create HeaderMap
@@ -151,7 +148,7 @@ pub async fn execute(client: &Client, request: &scenarios::Request) -> Result<(R
     };
 
     //Create builder
-    let mut builder = client.request(method, &request.url).headers(headers);
+    let mut builder = client.request(method, request.url.to_owned()).headers(headers);
 
     //Add required body
     let body = &request.body;

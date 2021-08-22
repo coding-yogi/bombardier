@@ -1,9 +1,8 @@
+use std::collections::HashMap;
 use tokio:: {
     fs,
     io::Error
 };
-
-use std::collections::HashMap;
 
 pub async fn get_content(path: &str) -> Result<String, Error> {
     Ok(fs::read_to_string(path).await?)
@@ -30,7 +29,7 @@ pub fn param_substitution(mut content: String, params: &HashMap<String, String>)
     if content.contains("{{") { //Avoid unnecessary looping, might be tricked by json but would avoid most
         for (param_name, param_value) in params {
             let from = &format!("{{{{{}}}}}", param_name);
-            let to = param_value.replace(r#"""#, r#"\""#);
+            let to = &param_value.replace(r#"""#, r#"\""#);
             content = content.replace(from, &to);
         }
     }

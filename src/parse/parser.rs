@@ -1,13 +1,11 @@
-use csv_async;
-use log::{error, warn};
-use futures::StreamExt;
+use log::warn;
 
 use std::{
     collections::HashMap,
     error::Error,
 };
 
-use crate::{cmd, file, model::scenarios};
+use crate::{cmd, file, model::*, report::csv};
 
 pub fn parse_config_from_string(content: String) -> Result<cmd::ExecConfig, Box<dyn std::error::Error>> {
     let config: cmd::ExecConfig = serde_json::from_str(&content)?;
@@ -23,18 +21,12 @@ pub fn parse_config_from_string(content: String) -> Result<cmd::ExecConfig, Box<
     Ok(config)
 }
 
-pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<scenarios::Request>, Box<dyn Error>> {
+pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<Request>, Box<dyn Error>> {
     let scenarios_yml = file::param_substitution(content, &env_map);
 
-    let root: scenarios::Root = match serde_yaml::from_str(&scenarios_yml) {
-        Ok(r) => r,
-        Err(err) => {
-            error!("Error deserializing yaml: {}", err.to_string());
-            return Err("Error while deserailizing scenarios yaml".into());
-        }
-    };
+    let root: Root = serde_yaml::from_str(&scenarios_yml)?;
 
-    let mut requests = Vec::<scenarios::Request>::new();
+    let mut requests = Vec::<Request>::new();
   
     for scenario in root.scenarios {
         for request in scenario.requests {
@@ -46,8 +38,8 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
 }
 
 pub fn get_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
-    let mut env_map: HashMap<String, String> = HashMap::new();
-    let env: scenarios::Environment = serde_yaml::from_str(content)?;
+    let env: Environment = serde_yaml::from_str(content)?;
+    let mut env_map: HashMap<String, String> = HashMap::with_capacity(30);
 
     for var in env.variables {
         let key = var.0.as_str().unwrap().to_string();
@@ -58,37 +50,16 @@ pub fn get_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Err
     Ok(env_map)
 }
 
-pub async fn get_vec_data_map(data_content: String) -> Result<Vec<HashMap<String, String>>, csv_async::Error> {
-
+pub async fn get_vec_data_map(data_content: String) -> Result<Vec<HashMap<String, String>>, Box<dyn Error>> {
     if data_content == "" {
         return Ok(Vec::<HashMap<String, String>>::new())
     }
-
-    let mut reader = csv_async::AsyncReaderBuilder::new()
-        .has_headers(false)
-        .trim(csv_async::Trim::All)
-        .create_reader(data_content.as_bytes());
-
-    let mut records_iterator = reader.records();
-
-    let headers= match records_iterator.next().await {
-        Some(item) => {
-            match item {
-                Ok(item) => item.iter()
-                .map(|s| s.to_owned())
-                .collect(),
-                Err(err) => return Err(err)
-            }
-        },
-        None => Vec::new()
-    };
-
-    let vec_data_map = records_iterator.map(|record| {
-        headers.iter()
-            .zip(record.unwrap().iter())
-            .map(|(k,v)| (k.to_owned(), v.to_owned()))
-            .collect::<HashMap<String, String>>()
-    }).collect::<Vec<HashMap<String, String>>>().await;
     
-    Ok(vec_data_map)
+    let vec_data_map = 
+        csv::CSVReader.get_records(data_content.as_bytes()).await;
+
+    match vec_data_map {
+        Ok(v) => Ok(v),
+        Err(err) => Err(err.into())
+    }
 }

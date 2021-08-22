@@ -6,6 +6,9 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release]
+debug = true
+
 [dependencies]
 clap = "2.33.3"
 chrono = "0.4.19"
@@ -13,7 +16,7 @@ crossbeam = "0.8.1"
 csv-async = {version = "1.2.1", features = ["tokio"]}
 flexi_logger = { version = "0.18.0", features = ["colors"] }
 futures = "0.3.16"
-jsonpath_lib = "0.3.0"
+gjson = "0.8.0"
 libxml = "0.3.0"
 log = "0.4.14"
 native-tls = "0.2.7"
@@ -28,6 +31,6 @@ serde_yaml = "0.8.17"
 tokio = { version = "1.9.0", features = ["full"] }
 tungstenite = "0.14.0"
 tokio-tungstenite = "0.15.0"
-url = "2.2.2"
+url = { version = "2.2.2", features = ["serde"] }
 uuid = { version = "0.8.2", features = ["v4"]}
 warp = "0.3.1"
