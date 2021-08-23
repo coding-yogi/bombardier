@@ -30,8 +30,8 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 
 ```
 {
-    "environment_file": "./examples/environment.json",
-    "collection_file": "./examples/collection.json",
+    "environment_file": "./examples/environment.yaml",
+    "collection_file": "./examples/scenarios.yaml",
     "data_file": "./examples/data.csv",
     "thread_count": 1,
     "iterations": 1,
@@ -53,13 +53,7 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
         "username": "",
         "password": "",
         "dbname": "mydb"
-    },
-    "distributed": true,
-    "nodes": [
-        "10.16.21.98:7000",
-        "10.16.21.99:7000",
-        "10.16.21.100:7001"
-    ]
+    }
 }
 ```
 
@@ -67,23 +61,32 @@ For more details regarding configuration json, please check [configurations](doc
 
 ## Running Tests on single instance
 `./bombardier bombard --config <path of config json>`
+  
 
 ## Distributed Tests
-Starting bombardier as a node  
- `./bombardier node --port <port on which node should listen>`
+### Starting bombardier as a hub  
+ `./bombardier hub -p <port for rest server> -s <port for websocket server>`
 
-Starting bombardier as a load distributor  
-`./bombardier bombard --config <path of config json>` 
+ Hub is responsible for distributing load to all its nodes and it runs 2 servers  
+ One is a REST server for user to interfact with bombardier, Second is a websocket server for Hub to communicate with its nodes.
+ Check [api](docs/api.md) documentation for API details
+  
 
-Note: Make sure `distributed` flag is set to `true` in config file and nodes are running
+### Starting bombardier as a node (load generator) 
+`./bombardier node -h <hub address>` 
+
+Node requires Hub's address to connect to, so Hub needs to be started first  
+  
 
 ## Enabling debug mode for more logs
 `export RUST_LOG=debug`  
 Debug logs would be written only to log file. It is not advisable to enable debug logging during actual execution of tests  
+  
 
 ## Generating reports
-`./bombardier report --config <path of config json>`  
+`./bombardier report -f <path to csv report file>`  
   
+
 ## Sample report
 | Request                         | Total Hits | Hits/s    | Min | Avg | Max  | 90% | 95% | 99% | Errors | Error Rate |
 |---------------------------------|------------|-----------|-----|-----|------|-----|-----|-----|--------|------------|
