@@ -11,7 +11,7 @@ on:
   pull_request:
     branches: [ develop, master ]
 
-jobs:q
+jobs:
   Ubuntu:
     runs-on: ubuntu-latest
     steps:
