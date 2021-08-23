@@ -96,12 +96,12 @@ pub async fn serve(
 
                     Message::Text(text) => {
                         match text.as_str() {
-                            "Done" => {
-                                info!("Received done from {}, updating bombardier to false", &conn_uuid);
+                            "done" => {
+                                info!("Received done from {}, updating bombarding to false", &conn_uuid);
                                 add_to_map(bombardiers_arc_clone.clone(), &conn_uuid, false).await;
                             },
                             _ => {
-                                info!("Message received from node {} : {}", &conn_uuid, &text);
+                                error!("Unexpected message received from node {} : {}", &conn_uuid, &text);
                             }
                         }
                     }

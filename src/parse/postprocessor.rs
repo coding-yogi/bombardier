@@ -1,6 +1,6 @@
 use gjson;
-use libxml::parser::Parser as xml_parser;
-use libxml::xpath::Context;
+//use libxml::parser::Parser as xml_parser;
+//use libxml::xpath::Context;
 use log::{debug, error, warn};
 use regex::Regex;
 use reqwest::{
@@ -38,7 +38,7 @@ struct XpathExtractor;
 
 impl Extractor for XpathExtractor {
     fn extract(&self, xpath: &str, body: &str) -> Result<String, Box<dyn Error + 'static>> {
-        let parser: xml_parser = match body.contains("<html>.*</html>") {
+        /*let parser: xml_parser = match body.contains("<html>.*</html>") {
             true => xml_parser::default_html(),
             _ => xml_parser::default()
         };
@@ -57,7 +57,8 @@ impl Extractor for XpathExtractor {
             warn!("Xpath {} matches multiple nodes. only first node would be considered", xpath)
         }
     
-        Ok(nodes[0].get_content())
+        Ok(nodes[0].get_content())*/
+        Ok(String::from("test"))
     }
 
     fn name(&self) -> &'static str{
