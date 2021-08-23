@@ -1,29 +1,14 @@
 # Bombardier ![bombardier](https://github.com/coding-yogi/bombardier/workflows/bombardier/badge.svg)
-Rust based HTTP load testing tool using postman collection  
-Bombardier can take your existing postman collection and bombard your server with those requests under specified load  
-  
-## Building from source
-Make sure you have cargo and rust installed. Checkout the code and run below command.  
-If code builds successfully you should see the binary/executable in `/target/release` folder
-  
-`cargo build --release`  
+Rust based HTTP load testing tool using yaml files.  
 
-## Troubleshooting
-If you face issues building the binaries from the source please check [troubleshooting](docs/troubleshooting.md) document
+Bombardier can take your simple yaml based files containing scenarios & environment variables and bombard your application with defined load.  
 
-## Using binaries
-If you do not wish to build bombardier from source, you can always download the binaries and use the tool directly. Go to [releases](https://github.com/coding-yogi/bombardier/releases) to download the binary of your choice
+Bombardier needs 2 file at minimum and 4 files at max to carry out any load tests
+- config.json (required) - Contains the execution configuration like no of threads, rampup time etc, check config section for more details
+- scenarios.yml (required) - File containing scenarios which would be used to generate load
+- environments.yml (optional) - Environment variables which would be replaced in scenario file during execution
+- data.csv (optional) - CSV file to supply test data
 
-## Using docker
-Bombardier can run as a Docker container too. You can build the image with following command  
-`docker build . -t bombardier`  
-
-Container can be started using below command  
-`docker run --name bombardier -v $PWD:/home bombardier:latest bombard --config /home/config.json`  
-
-Note the volume used. Present working directory on host is mapped to `/home` directory on container. 
-With this approach you need not copy your config file or collections file into the container. Make sure you update paths accordingly in config file
-  
 ## Config json
 You need to create a json file which can tell Bombardier about the load configuration.  
 If you do not wish to push stats to influxdb for real time monitoring you can skip that configuration. Stats would still be written to report file
@@ -58,6 +43,84 @@ If you do not wish to push stats to influxdb for real time monitoring you can sk
 ```
 
 For more details regarding configuration json, please check [configurations](docs/configuration.md) doc.  
+
+## Scenarios file
+
+A simple scenario.yml looks something like below. Every scenario can have N requests.  
+Each request is defined with its name, method, url, headers, body and extractors.    
+
+Extractors is an array which are more like post processors on the received response, they help to extract certain values from response which then can be used in the following requests.  
+
+To know more about extractors check [this](docs/extractors.md) doc
+```
+version: 1.0
+scenarios:
+  - name: scenario1
+    requests:
+    - name: echoGet
+      method: GET
+      url: "{{baseUrl}}/get"
+      headers:
+        authorization: jwt 123
+      extractors:
+        - type: gjsonpath
+          extract:
+            authHeader: "headers.authorization"
+            host: "headers.host"
+          
+    - name: echoPostWithUrlEncoded
+      method: POST
+      url: '{{baseUrl}}/post'
+      body:
+        urlencoded:
+          key23: value23
+          key24: value24
+      extractors:
+        - type: gjsonpath
+          extract:
+            keyname: "form.key23"
+        - type: gjsonpath
+          extract:
+            keyname: "form.key24"
+```
+
+## Environment file
+
+Many a times there would be need to have some variables which needs to be used through the tests, One such example you can see in the above tests is the `url` value. As the baseURL would remain same, you would want to pull it out of the tests , so that it can be updated (if required) later at a single place. All such variables can go into a file `environment.yml`, Below is an example of the same
+```
+version: 1.0
+variables:
+  baseUrl: https://postman-echo.com
+```
+
+Bombardier will do the necessary replacement of the values from environment file into the scenarios file at runtime
+
+## Data file
+
+Data file is a simple CSV format file with 1st row as header values, Data is injected into the test by reading from csv file. 
+At end of CSV file, tests start reading the data again from 1st row till the execution ends
+  
+## Building from source
+Make sure you have cargo and rust installed. Checkout the code and run below command.  
+If code builds successfully you should see the binary/executable in `/target/release` folder
+  
+`cargo build --release`  
+
+## Troubleshooting
+If you face issues building the binaries from the source please check [troubleshooting](docs/troubleshooting.md) document
+
+## Using binaries
+If you do not wish to build bombardier from source, you can always download the binaries and use the tool directly. Go to [releases](https://github.com/coding-yogi/bombardier/releases) to download the binary of your choice
+
+## Using docker
+Bombardier can run as a Docker container too. You can build the image with following command  
+`docker build . -t bombardier`  
+
+Container can be started using below command  
+`docker run --name bombardier -v $PWD:/home bombardier:latest bombard --config /home/config.json`  
+
+Note the volume used. Present working directory on host is mapped to `/home` directory on container. 
+With this approach you need not copy your config file or collections file into the container. Make sure you update paths accordingly in config file
 
 ## Running Tests on single instance
 `./bombardier bombard --config <path of config json>`
@@ -104,22 +167,3 @@ Debug logs would be written only to log file. It is not advisable to enable debu
 
 ## Benchmarks
 I would like this tool to be benchmarked with other tools to see if it needs more improvement. You can find the benchmarks [here](docs/benchmarks.md)
-
-
-## Limitations
-* Bombardier currently will only parse the requests which are directly under collection folder or it's sub-folder. It will ignore requests from folders which are 2 or more levels down in hierarchy.
-  In below example bombardier will ignore all requests under folder 2
-
-```
-├── collection
-    ├── request1
-    └── folder1
-        ├── request2
-        ├── request3
-        └── folder2
-            ├── request4
-            └── request5
-```  
-            
-* Bombardier currently cannot generate different loads for different folders under collection. Whole collection will be executed with same thread count
-* Bombardier cannot parse or execute Postman's javascript written under `test` tag. Due to this limitation you should explicitly tell bombardier if you wish to extract any value from response to be used in following requests. Refer [postprocessor](docs/postprocessor.md) guide for the same

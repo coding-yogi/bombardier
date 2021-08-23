@@ -30,7 +30,7 @@ impl Extractor for JsonExtractor {
     }
 
     fn name(&self) -> &'static str{
-        "jsonpath"
+        "gjsonpath"
     }
 }
 
@@ -100,7 +100,7 @@ pub async fn process(response: Response, extractors: &[model::Extractor], env_ma
 
     for extractor in extractors { 
         match extractor.extractor_type.as_str() {
-            "jsonpath"  => {
+            "gjsonpath"  => {
                 if !is_json_response {
                     error!("Response is not in json format, json extractor will not be executed");
                     continue;
