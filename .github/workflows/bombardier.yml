@@ -49,6 +49,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: numworks/setup-msys2@v1
+      env:
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
     - uses: actions-rs/toolchain@v1
       with:
         target: x86_64-pc-windows-gnu
