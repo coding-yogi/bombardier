@@ -3,7 +3,7 @@ Rust based HTTP load testing tool using yaml files.
 
 Bombardier can take your simple yaml based files containing scenarios & environment variables and bombard your application with defined load.  
 
-Bombardier needs 2 file in minimum and 4 files as max to carry out any load tests
+Bombardier needs 2 file at minimum and 4 files at max to carry out any load tests
 - config.json (required) - Contains the execution configuration like no of threads, rampup time etc, check config section for more details
 - scenarios.yml (required) - File containing scenarios which would be used to generate load
 - environments.yml (optional) - Environment variables which would be replaced in scenario file during execution
