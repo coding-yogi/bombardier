@@ -9,6 +9,40 @@ Bombardier needs 2 file in minimum and 4 files as max to carry out any load test
 - environments.yml (optional) - Environment variables which would be replaced in scenario file during execution
 - data.csv (optional) - CSV file to supply test data
 
+## Config json
+You need to create a json file which can tell Bombardier about the load configuration.  
+If you do not wish to push stats to influxdb for real time monitoring you can skip that configuration. Stats would still be written to report file
+
+```
+{
+    "environment_file": "./examples/environment.yaml",
+    "collection_file": "./examples/scenarios.yaml",
+    "data_file": "./examples/data.csv",
+    "thread_count": 1,
+    "iterations": 1,
+    "thread_delay": 1,
+    "execution_time": 1,
+    "rampup_time": 1,
+    "report_file": "report.csv",
+    "continue_on_error": false,
+    "handle_cookies": false,
+    "ssl": {
+        "ignore_ssl" : false,
+        "accept_invalid_hostnames": false,
+        "certificate": "./ca_cert.pem",
+        "keystore": "./keystore.p12",
+        "keystore_password": "P@$$w0rd123"
+    },
+    "influxdb" : {
+        "url": "http://localhost:8086",
+        "username": "",
+        "password": "",
+        "dbname": "mydb"
+    }
+}
+```
+
+For more details regarding configuration json, please check [configurations](docs/configuration.md) doc.  
 
 ## Scenarios file
 
@@ -87,41 +121,6 @@ Container can be started using below command
 
 Note the volume used. Present working directory on host is mapped to `/home` directory on container. 
 With this approach you need not copy your config file or collections file into the container. Make sure you update paths accordingly in config file
-  
-## Config json
-You need to create a json file which can tell Bombardier about the load configuration.  
-If you do not wish to push stats to influxdb for real time monitoring you can skip that configuration. Stats would still be written to report file
-
-```
-{
-    "environment_file": "./examples/environment.yaml",
-    "collection_file": "./examples/scenarios.yaml",
-    "data_file": "./examples/data.csv",
-    "thread_count": 1,
-    "iterations": 1,
-    "thread_delay": 1,
-    "execution_time": 1,
-    "rampup_time": 1,
-    "report_file": "report.csv",
-    "continue_on_error": false,
-    "handle_cookies": false,
-    "ssl": {
-        "ignore_ssl" : false,
-        "accept_invalid_hostnames": false,
-        "certificate": "./ca_cert.pem",
-        "keystore": "./keystore.p12",
-        "keystore_password": "P@$$w0rd123"
-    },
-    "influxdb" : {
-        "url": "http://localhost:8086",
-        "username": "",
-        "password": "",
-        "dbname": "mydb"
-    }
-}
-```
-
-For more details regarding configuration json, please check [configurations](docs/configuration.md) doc.  
 
 ## Running Tests on single instance
 `./bombardier bombard --config <path of config json>`
@@ -168,4 +167,3 @@ Debug logs would be written only to log file. It is not advisable to enable debu
 
 ## Benchmarks
 I would like this tool to be benchmarked with other tools to see if it needs more improvement. You can find the benchmarks [here](docs/benchmarks.md)
-
