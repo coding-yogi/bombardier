@@ -1,9 +1,14 @@
-FROM rust:1.54.0
-COPY ./bombardier ./home/bombardier
+FROM rust:1.54-alpine as builder
+COPY ./ ./home/bombardier
 WORKDIR ./home/bombardier
+RUN apk add --update --no-cache g++ gcc libxslt-dev openssl-dev pkgconfig
+RUN cargo build --release
+
+FROM alpine:latest  
+RUN apk --no-cache add ca-certificates
+WORKDIR ./home
+COPY --from=builder ./home/bombardier/target/release/bombardier ./
+RUN pwd && ls -l && chmod +x ./bombardier
 ENV RUST_LOG info
-ENV REST_SERVER_PORT 9001
-ENV WEB_SOCKET_PORT 
-EXPOSE 9001
 EXPOSE 9000
-CMD ["./home/bombardier/bombardier", "hub", "-p", "9000", "-s", "9001"]
+ENTRYPOINT ["./bombardier"]
