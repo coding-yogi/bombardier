@@ -33,7 +33,7 @@ use crate::{
 pub async fn serve(
     ws_port: u16,  ctx: Arc<servers::Context>) -> Result<(), Box<dyn std::error::Error + 'static>> {
 
-    let host = "127.0.0.1";
+    let host = "0.0.0.0";
     let server = match TcpListener::bind(format!("{}:{}", host, ws_port)).await {
         Ok(server) => server,
         Err(err) => {
