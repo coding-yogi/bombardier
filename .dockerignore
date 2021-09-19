@@ -1,7 +1,5 @@
-.git
-.github
+.*
+deploy
 docs
+examples
 target
-readme.md
-*.json
-*.log

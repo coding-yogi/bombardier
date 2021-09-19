@@ -1,7 +1,7 @@
 # Troubleshooting
 
 ## Issues while building from source
-One of the [postprocessors](postprocessor.md) which bombardier supports is `xpath`.  
+One of the [extractors](extractors.md) which bombardier supports is `xpath`.  
 Unfortunately Rust does not have a good builtin library to support xpaths. Few out there work specifically with XMLs and do not support HTML parsing.  
   
 As this tool can also be used for website performance testing its necessary to support xpath extractor for HTML.  

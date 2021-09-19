@@ -12,6 +12,39 @@ on:
     branches: [ develop, master ]
 
 jobs:
+  Docker:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check Out Repo 
+      uses: actions/checkout@v2
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v1
+    - name: Cache Docker layers
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    - name: Build and push
+      id: docker_build
+      uses: docker/build-push-action@v2
+      with:
+        context: ./
+        file: ./Dockerfile
+        builder: ${{ steps.buildx.outputs.name }}
+        push: true
+        tags:  ${{ secrets.DOCKER_HUB_USERNAME }}/bombardier:latest
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache
+    - name: Image digest
+      run: echo ${{ steps.docker_build.outputs.digest }}
   Ubuntu:
     runs-on: ubuntu-latest
     steps:
@@ -42,47 +75,4 @@ jobs:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ./target/release/bombardier
         asset_name: bombardier-macos
-        tag: ${{ github.ref }}
-
-  Windows:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: numworks/setup-msys2@v1
-    - uses: actions-rs/toolchain@v1
-      with:
-        target: x86_64-pc-windows-gnu
-        toolchain: stable-x86_64-pc-windows-gnu
-        default: true
-        override: true
-    - name: Install mingw64 toolchain & libxml2
-      run: msys2do pacman --noconfirm -S mingw-w64-x86_64-toolchain  mingw-w64-x86_64-libxml2
-    - name: Build
-      run: |
-        $Env:MINGW64_HOME_PATH = 'D:\a\_temp\msys\msys64\mingw64'
-        $Env:PKG_CONFIG_PATH = $Env:MINGW64_HOME_PATH + '\lib\pkgconfig'
-        $Env:PATH = $Env:MINGW64_HOME_PATH + '\bin;' + $Env:PATH
-        
-        Add-Content ~/.cargo/config "
-        [target.x86_64-pc-windows-gnu]
-        linker = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc.exe`"
-        ar = `"D:\\a\\_temp\\msys\\msys64\\mingw64\\bin\\x86_64-w64-mingw32-gcc-ar.exe`""
-        
-        cargo build --release --target=x86_64-pc-windows-gnu  
-    - name: Zip with dependencies
-      run: |
-        cd "D:\a\_temp\msys\msys64\mingw64\bin"
-        $compress = @{
-          Path = "D:\a\bombardier\bombardier\target\x86_64-pc-windows-gnu\release\bombardier.exe", "libxml2-2.dll", "libiconv-2.dll", "liblzma-5.dll", "zlib1.dll"
-          CompressionLevel = "Fastest"
-          DestinationPath = "D:\a\bombardier\bombardier\bombardier-win-x86-64.zip"
-        }
-        Compress-Archive @compress
-    - name: Release
-      uses: svenstaro/upload-release-action@v1-release
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: D:\a\bombardier\bombardier\bombardier-win-x86-64.zip
-        asset_name: bombardier-win-x86_64.zip
         tag: ${{ github.ref }}
