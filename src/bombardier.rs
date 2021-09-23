@@ -25,7 +25,6 @@ use crate::{
     report::stats
 };
 
-
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct  Bombardier {
     pub config: cmd::ExecConfig,

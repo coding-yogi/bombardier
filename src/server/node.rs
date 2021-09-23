@@ -39,7 +39,7 @@ pub async fn start(hub_address: String) -> Result<(), Box<dyn std::error::Error 
         };
 
         if msg.is_text() { //Handle only text messages
-            let text_msg = msg.to_text().unwrap();
+            let text_msg = msg.to_text()?;
 
             let b = match is_bombard_message(text_msg)  {
                 Some(b) => b,
@@ -49,18 +49,18 @@ pub async fn start(hub_address: String) -> Result<(), Box<dyn std::error::Error 
             let (stats_sender,  stats_receiver_handle) = 
             StatsConsumer::new(&b.config,sink_arc.clone()).await;
 
+            info!("Initiate Bombarding");
             match b.bombard(stats_sender).await {
                 Err(err) => error!("Bombarding failed : {}", err),
-                Ok(()) => info!("Bombarding Complete. Run report command to get details")
+                Ok(()) => info!("Bombarding Complete")
             }
         
-            stats_receiver_handle.await.unwrap();
+            stats_receiver_handle.await?;
         }
     } 
 }
 
 fn is_bombard_message(msg: &str) -> Option<Bombardier> {
-    info!("Message received from hub: {:?}", msg);
     match serde_json::from_str(msg) {
         Ok(b) => b,
         Err(err) => {

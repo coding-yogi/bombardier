@@ -1,6 +1,6 @@
 use chrono::Utc;
 use crossbeam::channel;
-use log::debug;
+use log::{error, info};
 
 use serde::{Serialize, Deserialize};
 use tokio::{net::TcpStream, sync::Mutex, task};
@@ -14,7 +14,6 @@ use std::{
 
 use crate::{
     cmd,
-    protocol::http,
     report::{influxdb, csv},
     socket,
 };
@@ -51,15 +50,20 @@ impl StatsConsumer {
         Arc<Mutex<Option<socket::WebSocketSink<MaybeTlsStream<TcpStream>>>>>) 
     -> (channel::Sender<Vec<Stats>>, tokio::task::JoinHandle<()>) {
 
+        info!("Initiate StatsConsumer");
         let (tx, rx) = channel::unbounded::<Vec<Stats>>();
         
-        let influx_writer = influxdb::InfluxDBWriter::new(&config.influxdb, http::get_default_sync_client());
+        let influx_writer = influxdb::InfluxDBWriter::new(&config.influxdb);
         let influx_writer_arc = Arc::new(Mutex::new(influx_writer));
 
         let is_distributed = config.distributed;
+        info!("Is execution distributed: {}", is_distributed);
+
         let is_influxdb_configured = config.influxdb.url != "";
+        info!("Is influx DB configured: {}", is_influxdb_configured);
 
         let opt_csv_writer;
+
         if is_distributed {
             opt_csv_writer = None
         } else {
@@ -73,26 +77,32 @@ impl StatsConsumer {
                 match rx.recv() {
                     Ok(stats) => {
                         //check if distributed
-                        debug!("Received stats data");
                         if is_distributed {
+                            //Sending stats data to hub over websocket connection
                             let mut ws_mtx_grd = websocket_arc.lock().await;
                             ws_mtx_grd.as_mut().unwrap().write_stats(&stats[..]).await;
                         } else {
+                            //Writing stats to CSV
                             let mut csv_mtx_grd = csv_writer_arc.lock().await;
                             csv_mtx_grd.as_mut().unwrap().write(&stats[..]).await;
                         }
 
+                        //Sending data to influx DB if configured
                         if is_influxdb_configured {
                             let mut influx_writer_mg = influx_writer_arc.lock().await;
                             influx_writer_mg.as_mut().unwrap().write_stats(&stats[..]).await;
                         }
                     }
-                    Err(_) => {
-                        if is_distributed { //If distributed, channel has been closed explicitly, send done to distributor
+                    Err(err) => {       
+                        //If distributed, channel has been closed explicitly, send done to hub
+                        if is_distributed && err.to_string().contains("receiving on an empty and disconnected channel") { 
                             let mut ws_mtx_grd = websocket_arc.lock().await;
                             ws_mtx_grd.as_mut().unwrap().write(String::from("done")).await;
-                        }               
-                        break;
+                            break;
+                        }            
+                        
+                        //Error will be logged only in case of non-distributed execution as its not expected
+                        error!("Error occured while receiving the stats message {}", err); 
                     }
                 }
             }
@@ -101,4 +111,3 @@ impl StatsConsumer {
         (tx, handle)
     }
 }
-
