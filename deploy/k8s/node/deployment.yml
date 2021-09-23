@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bombardier-node
+  labels:
+    app: bombardier-node
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bombardier-node
+  template:
+    metadata:
+      labels:
+        app: bombardier-node
+    spec:
+      containers:
+      - name: bombardier-node
+        image: codingyogi/bombardier:latest
+        command: ["./bombardier", "node", "-h", "bombardier-hub.default.svc.cluster.local:9001"]
