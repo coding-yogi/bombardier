@@ -61,6 +61,7 @@ pub async fn start(hub_address: String) -> Result<(), Box<dyn std::error::Error 
 }
 
 fn is_bombard_message(msg: &str) -> Option<Bombardier> {
+    info!("Message received from hub: {:?}", msg);
     match serde_json::from_str(msg) {
         Ok(b) => b,
         Err(err) => {
