@@ -1,14 +1,14 @@
-FROM rust:1.54-alpine as builder
+FROM rust:1.55-slim-buster as builder
 COPY ./ ./home/bombardier
-WORKDIR ./home/bombardier
-RUN apk add --update --no-cache g++ gcc libxslt-dev openssl-dev pkgconfig
+WORKDIR /home/bombardier
+RUN apt-get update && apt-get install -y libxml2-dev libssl-dev pkg-config
 RUN cargo build --release
 
-FROM alpine:latest  
-RUN apk --no-cache add ca-certificates
-WORKDIR ./home
+FROM debian:buster-slim 
+RUN apt-get update && apt-get -y install ca-certificates libxml2-dev libssl-dev
+WORKDIR /home
 COPY --from=builder ./home/bombardier/target/release/bombardier ./
-RUN pwd && ls -l && chmod +x ./bombardier
-ENV RUST_LOG info
+RUN chmod +x ./bombardier
+ENV RUST_LOG debug
 EXPOSE 9000
 ENTRYPOINT ["./bombardier"]

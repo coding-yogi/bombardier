@@ -125,7 +125,7 @@ async fn add_multipart_form_data(builder: RequestBuilder, body: &Body)
 fn add_url_encoded_data(builder: RequestBuilder, body: &Body) -> RequestBuilder {
     let mut params = HashMap::with_capacity(body.urlencoded.len());
 
-    &body.urlencoded.iter().for_each(|(k,v)| {
+    body.urlencoded.iter().for_each(|(k,v)| {
         params.insert(k.as_str().unwrap().to_owned(), v.as_str().unwrap().to_owned());
     });
 
