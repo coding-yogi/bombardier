@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bombardier-hub
+  labels:
+    app: bombardier-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bombardier-hub
+  template:
+    metadata:
+      labels:
+        app: bombardier-hub
+    spec:
+      containers:
+      - name: bombardier-hub
+        image: codingyogi/bombardier:latest
+        command: ["./bombardier", "hub", "-p", "9000", "-s", "9001"]
+        ports:
+        - name: rest-server
+          containerPort: 9000
+        - name: socket-server
+          containerPort: 9001
+        livenessProbe:
+          tcpSocket:
+            port: 9000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /bombardier/v1/nodes
+            port: 9000
+          initialDelaySeconds: 5
+          periodSeconds: 60
