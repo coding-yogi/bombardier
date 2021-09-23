@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use log::error;
+use log::{info,error};
 use reqwest::Client;
 use serde_yaml::{Mapping, Value};
 
@@ -16,10 +16,11 @@ pub struct InfluxDBWriter {
 }
 
 impl InfluxDBWriter {
-    pub fn new(influxdb: &cmd::InfluxDB, client: Client) -> Option<InfluxDBWriter> {
+    pub fn new(influxdb: &cmd::InfluxDB) -> Option<InfluxDBWriter> {
 
         //check if url is set
         if influxdb.url == "" {
+            info!("Influx DB URL is empty, not initializing the InfluxDBWriter");
             return None;
         }
 
@@ -29,14 +30,20 @@ impl InfluxDBWriter {
             str_url =  format!("{}&u={}&p={}", str_url, influxdb.username, influxdb.password);
         }
 
-        let url = url::Url::parse(&str_url).unwrap();
+        let url = match url::Url::parse(&str_url) {
+            Ok(url) => url,
+            Err(err) => {
+                error!("Error occurred while parsing influx DB url {}", err);
+                return None;
+            }
+        };
 
         //Setting headers
         let mut headers = serde_yaml::Mapping::with_capacity(1);
         headers.insert(Value::from("content-type"), Value::from("application/octet-stream"));
 
         Some(InfluxDBWriter {
-            client: client,
+            client: http::get_default_sync_client(),
             request: model::Request {
                 name: String::from("postToInfluxDB"),
                 url: url,

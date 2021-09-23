@@ -6,7 +6,7 @@ use csv_async::{
     Trim
 };
 use futures::StreamExt;
-use log::warn;
+use log::{info,warn};
 use serde::de::DeserializeOwned;
 use tokio::{fs, io::{AsyncWriteExt, AsyncRead}};
 
@@ -81,6 +81,7 @@ pub struct CSVWriter {
 
 impl CSVWriter {
     pub async fn new(report_file: &str) -> Result<CSVWriter, std::io::Error> {
+        info!("Initiating CSVWriter");
         let file = file::create_file(report_file).await?;
         let mut csv_writer = CSVWriter {
             report_file: file
