@@ -1,6 +1,6 @@
 use chrono::Utc;
 use crossbeam::channel;
-use log::{error, info};
+use log::{error, info, warn};
 
 use serde::{Serialize, Deserialize};
 use tokio::{net::TcpStream, sync::Mutex, task};
@@ -13,9 +13,10 @@ use std::{
 };
 
 use crate::{
-    cmd,
-    report::{influxdb, csv},
-    socket,
+    cmd::{self, Database}, 
+    report::csv, 
+    socket, 
+    storage::{self, DBWriter, influxdb}
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,26 +49,25 @@ pub struct StatsConsumer {}
 impl StatsConsumer {
     pub async fn new(config: &cmd::ExecConfig, websocket_arc: 
         Arc<Mutex<Option<socket::WebSocketSink<MaybeTlsStream<TcpStream>>>>>) 
-    -> (channel::Sender<Vec<Stats>>, tokio::task::JoinHandle<()>) {
+    -> Result<(channel::Sender<Vec<Stats>>, tokio::task::JoinHandle<()>),String> {
 
         info!("Initiate StatsConsumer");
         let (tx, rx) = channel::unbounded::<Vec<Stats>>();
-        
-        let influx_writer = influxdb::InfluxDBWriter::new(&config.influxdb);
-        let influx_writer_arc = Arc::new(Mutex::new(influx_writer));
 
         let is_distributed = config.distributed;
-        info!("Is execution distributed: {}", is_distributed);
 
-        let is_influxdb_configured = config.influxdb.url != "";
-        info!("Is influx DB configured: {}", is_influxdb_configured);
+        //Initialize DB writer is DB is configured
+        let db_writer = get_db_writer(&config.database);
+        let is_db_configured = db_writer.is_some();
+        let db_writer_arc = Arc::new(Mutex::new(db_writer));
 
-        let opt_csv_writer;
-
-        if is_distributed {
-            opt_csv_writer = None
-        } else {
-            opt_csv_writer = Some(csv::CSVWriter::new(&config.report_file).await.unwrap());
+        //Initialize CSV Writer is execution is not distributed
+        let mut opt_csv_writer = None;
+        if !is_distributed {
+            opt_csv_writer = match csv::CSVWriter::new(&cmd::DEFAULT_REPORT_FILE).await {
+                Ok(w) => Some(w),
+                Err(err) => return Err(err.to_string())
+            };
         }
 
         let csv_writer_arc = Arc::new(Mutex::new(opt_csv_writer));
@@ -87,27 +87,59 @@ impl StatsConsumer {
                             csv_mtx_grd.as_mut().unwrap().write(&stats[..]).await;
                         }
 
-                        //Sending data to influx DB if configured
-                        if is_influxdb_configured {
-                            let mut influx_writer_mg = influx_writer_arc.lock().await;
-                            influx_writer_mg.as_mut().unwrap().write_stats(&stats[..]).await;
+                        //Sending data to DB if configured
+                        if is_db_configured {
+                            let mut db_writer_mg = db_writer_arc.lock().await;
+                            db_writer_mg.as_mut().unwrap().write_stats(&stats[..]).await;
                         }
                     }
                     Err(err) => {       
-                        //If distributed, channel has been closed explicitly, send done to hub
-                        if is_distributed && err.to_string().contains("receiving on an empty and disconnected channel") { 
-                            let mut ws_mtx_grd = websocket_arc.lock().await;
-                            ws_mtx_grd.as_mut().unwrap().write(String::from("done")).await;
+                        if err.to_string().contains("receiving on an empty and disconnected channel") {
+                            //If distributed, send done from Node
+                            if is_distributed { 
+                                let mut ws_mtx_grd = websocket_arc.lock().await;
+                                ws_mtx_grd.as_mut().unwrap().write(String::from("done")).await;
+                            } 
+
                             break;
-                        }            
-                        
-                        //Error will be logged only in case of non-distributed execution as its not expected
-                        error!("Error occured while receiving the stats message {}", err); 
+                        }
+
+                        //Log any other error apart from disconnected channel
+                        error!("Error receiving msg on StatsConsumer channel: {}", err); 
                     }
                 }
             }
         });
 
-        (tx, handle)
+        Ok((tx, handle))
     }
+}
+
+fn get_db_writer(db_config: &Database) -> Option<Box<dyn storage::DBWriter + Send>> {
+    let db_writer;
+
+    match db_config.db_type.to_lowercase().as_str() {
+        "influxdb" => {
+            info!("Initiating influx DB");
+            match influxdb::InfluxDBWriter::new(&db_config) {
+                Some(writer) =>  {
+                    db_writer = Box::new(writer) as Box<dyn DBWriter + Send>;
+                },
+                None => {
+                    error!("InfluxDB initialization failed");
+                    return None
+                }
+            }
+        },
+        "" => {
+            warn!("No database type defined. No DBWriter will be initialized");
+            return None;
+        },
+        _ => {
+            error!("Invalid DB type received: {}", &db_config.db_type);
+            return None
+        }
+    }
+
+    Some(db_writer)
 }

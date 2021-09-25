@@ -1,5 +1,6 @@
+use async_trait::async_trait;
 use chrono::DateTime;
-use log::{info,error};
+use log::error;
 use reqwest::Client;
 use serde_yaml::{Mapping, Value};
 
@@ -8,6 +9,7 @@ use crate::{
     model,
     protocol::http,
     report::stats,
+    storage
 };
 
 pub struct InfluxDBWriter {
@@ -16,18 +18,17 @@ pub struct InfluxDBWriter {
 }
 
 impl InfluxDBWriter {
-    pub fn new(influxdb: &cmd::InfluxDB) -> Option<InfluxDBWriter> {
-
+    pub fn new(influxdb: &cmd::Database) -> Option<InfluxDBWriter> {
         //check if url is set
         if influxdb.url == "" {
-            info!("Influx DB URL is empty, not initializing the InfluxDBWriter");
+            error!("InfluxDB url is not set, not initializing the InfluxDBWriter");
             return None;
         }
 
         //Setting URL
-        let mut str_url = format!("{}/write?db={}&precision=ms", influxdb.url, influxdb.dbname);
-        if influxdb.username != "" {
-            str_url =  format!("{}&u={}&p={}", str_url, influxdb.username, influxdb.password);
+        let mut str_url = format!("{}/write?db={}&precision=ms", influxdb.url, influxdb.name);
+        if influxdb.user != "" {
+            str_url =  format!("{}&u={}&p={}", str_url, influxdb.user, influxdb.password);
         }
 
         let url = match url::Url::parse(&str_url) {
@@ -59,7 +60,17 @@ impl InfluxDBWriter {
         })
     }
 
-    pub async fn write_stats(&mut self, stats: &[stats::Stats]) {
+    fn set_body_from_stats(&mut self, stats: &[stats::Stats]) {
+        self.request.body.raw = stats.iter()
+            .map(|s| {format!("stats,request={} latency={},status={} {}",
+                s.name, s.latency, s.status, DateTime::parse_from_rfc3339(&s.timestamp).unwrap().timestamp_millis())})
+            .collect::<Vec<String>>().join("\n")
+    }
+}
+
+#[async_trait]
+impl storage::DBWriter for InfluxDBWriter {
+    async fn write_stats(&mut self, stats: &[stats::Stats]) {
         //Setting Body
         self.set_body_from_stats(&stats);
 
@@ -67,12 +78,5 @@ impl InfluxDBWriter {
             Ok(_res) => (),
             Err(err) => error!("Error writing to influxdb: {}", err)
         };
-    }
-
-    fn set_body_from_stats(&mut self, stats: &[stats::Stats]) {
-        self.request.body.raw = stats.iter()
-            .map(|s| {format!("stats,request={} latency={},status={} {}",
-                s.name, s.latency, s.status, DateTime::parse_from_rfc3339(&s.timestamp).unwrap().timestamp_millis())})
-            .collect::<Vec<String>>().join("\n")
     }
 }

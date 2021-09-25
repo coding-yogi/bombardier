@@ -1,4 +1,4 @@
-use log::{info, warn};
+use log::{error, info, warn};
 use reqwest::{
     Client, 
     Response, 
@@ -30,7 +30,15 @@ pub fn get_default_sync_client() -> Client {
 } 
 
 async fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Send + Sync>> {
-    let cert = file::read_file(path).await?;
+    info!("Getting certificate file from path {}", path);
+    let cert = match file::read_file(path).await {
+        Ok(cert) => cert,
+        Err(err) => {
+            error!("Reading certificate file failed: {}", err);
+            return Err(err.into())
+        }
+    };
+    
     if path.to_lowercase().ends_with(cmd::DER_EXT) {
         return Ok(Certificate::from_der(&cert)?)
     } else if path.to_lowercase().ends_with(cmd::PEM_EXT) {
@@ -41,7 +49,16 @@ async fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Sen
 }
 
 async fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn Error + Send + Sync>> {
-    let ks = file::read_file(path).await?;
+    info!("Getting keystore file from path {}", path);
+    let ks = match file::read_file(path).await {
+        Ok(ks) => ks,
+        Err(err) => {
+            error!("Reading keystore file failed: {}", err);
+            return Err(err.into())
+        }
+    };
+
+
     if path.to_lowercase().ends_with(cmd::P12_EXT) || path.to_lowercase().ends_with(cmd::PFX_EXT) {
         return Ok(Identity::from_pkcs12_der(&ks, password)?)
     }
@@ -132,8 +149,7 @@ fn add_url_encoded_data(builder: RequestBuilder, body: &Body) -> RequestBuilder 
     builder.form(&params)
 }
 
-pub async fn execute(client: &Client, request: &Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {
-   
+pub async fn execute(client: &Client, request: &Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {  
     //Check if method is valid, else return error
     let method_name = &request.method.to_uppercase();
     let method = Method::from_str(method_name)?;

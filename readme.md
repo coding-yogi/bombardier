@@ -4,49 +4,42 @@ Rust based HTTP load testing tool using yaml files.
 Bombardier can take your simple yaml based files containing scenarios & environment variables and bombard your application with defined load.  
 
 Bombardier needs 2 file at minimum and 4 files at max to carry out any load tests
-- config.json (required) - Contains the execution configuration like no of threads, rampup time etc, check config section for more details
+- config.yaml (required) - Contains the execution configuration like no of threads, rampup time etc, check config section for more details
 - scenarios.yml (required) - File containing scenarios which would be used to generate load
 - environments.yml (optional) - Environment variables which would be replaced in scenario file during execution
 - data.csv (optional) - CSV file to supply test data
 
-## Config json
-You need to create a json file which can tell Bombardier about the load configuration.  
-If you do not wish to push stats to influxdb for real time monitoring you can skip that configuration. Stats would still be written to report file
+## Config yml
+You need to create a yml file which can tell Bombardier about the load configuration.  
 
 ```
-{
-    "environment_file": "./examples/environment.yaml",
-    "collection_file": "./examples/scenarios.yaml",
-    "data_file": "./examples/data.csv",
-    "thread_count": 1,
-    "iterations": 1,
-    "thread_delay": 1,
-    "execution_time": 1,
-    "rampup_time": 1,
-    "report_file": "report.csv",
-    "continue_on_error": false,
-    "handle_cookies": false,
-    "ssl": {
-        "ignore_ssl" : false,
-        "accept_invalid_hostnames": false,
-        "certificate": "./ca_cert.pem",
-        "keystore": "./keystore.p12",
-        "keystore_password": "P@$$w0rd123"
-    },
-    "influxdb" : {
-        "url": "http://localhost:8086",
-        "username": "",
-        "password": "",
-        "dbname": "mydb"
-    }
-}
+version: 1.0
+threadCount: 1
+iterations: 10
+threadDelay: 1
+executionTime: 0
+rampUpTime: 1
+continueOnError: true
+handleCookies: false
+ssl:
+  ignoreSSL: true
+  acceptInvalidHostnames: false
+  certificate: "./ca_cert.pem"
+  keyStore: "./keystore.p12"
+  keyStorePassword: "P@$$w0rd123"
+database:
+  type: influxDB
+  url: http://some-influxdb/
+  name: dbName
+  user: someUser
+  password: P@$$w0rd123
 ```
 
 For more details regarding configuration json, please check [configurations](docs/configuration.md) doc.  
 
 ## Scenarios file
 
-A simple scenario.yml looks something like below. Every scenario can have N requests.  
+A simple scenarios.yml looks something like below. Every scenario can have N requests.  
 Each request is defined with its name, method, url, headers, body and extractors.    
 
 Extractors is an array which are more like post processors on the received response, they help to extract certain values from response which then can be used in the following requests.  
@@ -117,13 +110,13 @@ Bombardier can run as a Docker container too. You can build the image with follo
 `docker build . -t bombardier`  
 
 Container can be started using below command  
-`docker run --name bombardier -v $PWD:/home bombardier:latest bombard --config /home/config.json`  
+`docker run --name bombardier -v $PWD:/home bombardier:latest bombard -c /home/config.yml -s /home/scenarios.yml -e /home/env.yml`  
 
 Note the volume used. Present working directory on host is mapped to `/home` directory on container. 
 With this approach you need not copy your config file or collections file into the container. Make sure you update paths accordingly in config file
 
 ## Running Tests on single instance
-`./bombardier bombard --config <path of config json>`
+`./bombardier bombard -c <path of config yml> -s <path of scenarios yml> -e <path of env yml>`
   
 
 ## Distributed Tests
@@ -147,7 +140,7 @@ Debug logs would be written only to log file. It is not advisable to enable debu
   
 
 ## Generating reports
-`./bombardier report -f <path to csv report file>`  
+`./bombardier report -r <path to csv report file>`  
   
 
 ## Sample report

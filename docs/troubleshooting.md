@@ -10,11 +10,11 @@ And this is where building bombardier gets a little painful on some platforms.
 
 ### Linux
 Ideally you should not face any issues on linux and code should just build with `cargo build` command.  
-libxml2 is generally available by default on linux based systems.  
+`libxml2` is generally available by default on linux based systems. 
+In case its not availble please use respective package managers of your linux flavour and install `pkgconfig` & `libxml2dev` 
 
 ### MacOS
 MacOS may or may not have libxml2 installed but it can be done using `homebrew`, you also need a lib called `pkg-config`. 
-  
   
 Run below commands to install both and then you should be good with your `cargo build`.  
 ```
@@ -51,4 +51,4 @@ If you still want to go ahead and build bombardier executable on windows, follow
   zlib1.dll
   ```
 
-If you think it is not worth taking the pain to build bombardier on windows, you can always download windows executable from [releases](https://github.com/coding-yogi/bombardier/releases)
+Note: Bombardier is not officially supported on windows, but you can always try to build on your own

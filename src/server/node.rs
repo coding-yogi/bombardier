@@ -47,7 +47,13 @@ pub async fn start(hub_address: String) -> Result<(), Box<dyn std::error::Error 
             };
 
             let (stats_sender,  stats_receiver_handle) = 
-            StatsConsumer::new(&b.config,sink_arc.clone()).await;
+            match StatsConsumer::new(&b.config,sink_arc.clone()).await {
+                Ok((s,r)) => (s,r),
+                Err(err) => {
+                    error!("Error while initializing stats consumer {}", err);
+                    continue;
+                }
+            };
 
             info!("Initiate Bombarding");
             match b.bombard(stats_sender).await {
