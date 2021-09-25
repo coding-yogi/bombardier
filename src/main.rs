@@ -1,23 +1,24 @@
 mod bombardier;
 mod cmd;
+mod logger;
 mod model;
 mod parse;
 mod protocol;
 mod report;
 mod server;
 mod storage;
-mod util;
 
+
+use cmd::ExecConfig;
 use log::{info, error};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::{fs,sync::Mutex};
 
 use crate::{
     bombardier::Bombardier, 
     parse::parser, 
     protocol::socket, 
-    report::stats, 
-    util::{logger, file}
+    report::stats
 };
 
 #[tokio::main]
@@ -26,7 +27,7 @@ async fn main()  {
     logger::initiate(true);
 
     let matches = cmd::create_cmd_app().get_matches();
-    let (subcommand, subcommand_args) = matches.subcommand();
+    let (subcommand, arg_matches) = matches.subcommand();
 
     if subcommand == "" {
         error!("No subcommand found. Should either be 'bombard', 'report' or 'node'");
@@ -35,57 +36,29 @@ async fn main()  {
 
     match subcommand {
         "bombard" => {
-            let config_file_path = cmd::arg_value_as_str(subcommand_args, cmd::CONFIG_FILE_ARG_NAME);
-            info!("Parsing config file {}", config_file_path);
-
-            let config_content = match file::get_content(&config_file_path).await {
-                Err(err) => {
-                    error!("Error while reading config file {}", err);
-                    return
-                },
-                Ok(content) => content
+            //Get config
+            let config = match get_config(arg_matches).await {
+                Some(c) => c,
+                None => return
             };
 
-            let config = parser::parse_config_from_string(config_content).unwrap();
-
-            //get content of env file
-            let env_file_path = cmd::arg_value_as_str(subcommand_args, cmd::ENVIRONMENT_FILE_ARG_NAME);
-            let mut env_content = String::new();
-            if env_file_path != "" {
-                info!("Reading environments file {}", env_file_path);
-                env_content = match file::get_content(&env_file_path).await {
-                    Ok(content) => content,
-                    Err(err) => {
-                        error!("Error while reading env file {}", err);
-                        return
-                    }
-                };
-            }
-
-            //get content of scenario file
-            let scenarios_file = cmd::arg_value_as_str(subcommand_args, cmd::SCENARIOS_FILE_ARG_NAME);
-            info!("Reading scenarios file {}", &scenarios_file);
-            let scenarios_content = match file::get_content(&scenarios_file).await {
-                Err(err) => {
-                    error!("Error while reading scenarios file {}", err);
-                    return
-                },
-                Ok(content) => content
+            //Get content of env file
+            let env_content = match get_arg_file_content(arg_matches, cmd::ENVIRONMENT_FILE_ARG_NAME).await {
+                Some(c) => c,
+                None => return
             };
 
-            //get data file content
-            let data_file = cmd::arg_value_as_str(subcommand_args, cmd::DATA_FILE_ARG_NAME);
-            let mut data_content = String::new();
-            if data_file != "" {
-                info!("Reading data file {}", data_file);
-                data_content = match file::get_content(&data_file).await {
-                    Ok(content) => content,
-                    Err(err) => {
-                        error!("Error while data file {}", err);
-                        return
-                    }
-                };
-            }
+            //Get content of env file
+            let scenarios_content = match get_arg_file_content(arg_matches, cmd::SCENARIOS_FILE_ARG_NAME).await {
+                Some(c) => c,
+                None => return
+            };
+
+            //Get data file content
+            let data_content = match get_arg_file_content(arg_matches, cmd::DATA_FILE_ARG_NAME).await {
+                Some(c) => c,
+                None => return
+            };
 
             info!("Prepare bombardier");
             let bombardier = 
@@ -109,39 +82,30 @@ async fn main()  {
             stats_receiver_handle.await.unwrap();
         },
         "report" => {
-            let report_file = cmd::arg_value_as_str(subcommand_args, cmd::REPORT_FILE_ARG_NAME);
+            let report_file = cmd::arg_value_as_str(arg_matches, cmd::REPORT_FILE_ARG_NAME);
 
             info!("Generating report");
             match report::display(&report_file).await {
-                Err(err) => {
-                    error!("Error while displaying reports : {}", err);
-                    return;
-                },
+                Err(err) => error!("Error while displaying reports : {}", err),
                 Ok(()) => ()
             }
         },
         "node" => {
-            let hub_address = cmd::arg_value_as_str(subcommand_args, cmd::HUB_ADDRESS_ARG_NAME);
+            let hub_address = cmd::arg_value_as_str(arg_matches, cmd::HUB_ADDRESS_ARG_NAME);
 
             info!("Starting bombardier as a node");
             match  server::node::start(hub_address).await {
-                Err(err) => {
-                    error!("Error occured in the node : {}", err);
-                    return;
-                },
+                Err(err) => error!("Error occured in the node : {}", err),
                 Ok(()) => ()
             }; 
         },
         "hub" => {
-            let server_port = cmd::arg_value_as_u16(subcommand_args, cmd::SERVER_PORT_ARG_NAME);
-            let ws_port = cmd::arg_value_as_u16(subcommand_args, cmd::SOCKET_PORT_ARG_NAME);
+            let server_port = cmd::arg_value_as_u16(arg_matches, cmd::SERVER_PORT_ARG_NAME);
+            let ws_port = cmd::arg_value_as_u16(arg_matches, cmd::SOCKET_PORT_ARG_NAME);
 
             info!("Starting bombardier as a hub server");
             match server::servers::serve(server_port, ws_port).await {
-                Err(err) => {
-                    error!("Error occured while running bombardier as server : {}", err);
-                    return;
-                },
+                Err(err) => error!("Error occured while running bombardier as server : {}", err),
                 Ok(()) => ()
             }
         },
@@ -149,4 +113,44 @@ async fn main()  {
             error!("Invalid command");
         },
     }
+}
+
+async fn get_config<'a>(args_match: Option<&clap::ArgMatches<'a>>) -> Option<ExecConfig> {
+    let config_file_path = cmd::arg_value_as_str(args_match, cmd::CONFIG_FILE_ARG_NAME);
+    info!("Parsing config file {}", config_file_path);
+
+    let config_content = match fs::read_to_string(&config_file_path).await {
+        Err(err) => {
+            error!("Error while reading config file {}", err);
+            return None;
+        },
+        Ok(content) => content
+    };
+
+    match parser::parse_config_from_string(config_content) {
+        Ok(c) => Some(c),
+        Err(err) => {
+            error!("Error while parsing config string content {}", err);
+            None
+        }
+    }
+}
+
+async fn get_arg_file_content<'a>(args_match: Option<&clap::ArgMatches<'a>>, arg_name: &str) -> Option<String> {
+    let file_path = cmd::arg_value_as_str(args_match, arg_name);
+    let mut content = String::new();
+    if file_path != "" {
+        info!("Reading {} file", file_path);
+        content = match fs::read_to_string(&file_path).await {
+            Ok(content) => content,
+            Err(err) => {
+                error!("Error while reading file {}", err);
+                return None
+            }
+        };
+    } else {
+        info!("No file provided for {}", arg_name);
+    }
+
+    Some(content)
 }

@@ -1,6 +1,6 @@
 use chrono::{Utc, DateTime};
 use crossbeam::channel;
-use log::{debug, error, info, warn, trace};
+use log::{error, info, warn, trace};
 use serde::{Serialize, Deserialize};
 use tokio::{
     sync::Mutex,
@@ -10,19 +10,19 @@ use tokio::{
 
 use std::{
     collections::HashMap,
+    error::Error,
     sync::Arc
 };
 
 use crate::{
     cmd, 
-    file, 
-    model::Request, 
+    model::*, 
     parse::{
-        parser, 
+        preprocessor,
         postprocessor
     }, 
     protocol::http, 
-    report::stats
+    report::{csv,stats}
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -36,38 +36,25 @@ pub struct  Bombardier {
 impl Bombardier {
     pub async fn new(config: cmd::ExecConfig, env: String, scenarios: String, data: String) 
     -> Result<Bombardier, Box<dyn std::error::Error>>  {
-
-        //prepare environment map
-        info!("Parsing env map");
-        let env_map = match parser::get_env_map(&env) {
-            Err(err) => {
-                error!("Error occured while parsing environments: {}", err);
-                return Err(err);
-            },
+        //Prepare environment map
+        let env_map = match get_env_map(&env) {
+            Err(err) => return Err(err),
             Ok(map) => map
         };
-
-        //prepare scenarios
-        info!("Preparing bombardier attacks!");
-        let requests = match parser::parse_requests(scenarios, &env_map) {
-            Err(err) => {
-                error!("Error occured while parsing requests : {}", err);
-                return Err(err)
-            },
+        
+        //Prepare bombardier requests
+        let requests = match parse_requests(scenarios, &env_map) {
+            Err(err) => return Err(err),
             Ok(v) => v
         };
 
-        //preparing data for attack
-        info!("Parsing attack data");
-        let vec_data_map = match parser::get_vec_data_map(data).await {
-            Err(err) => {
-                error!("Error occured while parsing data  {}", err);
-                return Err(err)
-            },
+        //Prepare data for attack
+        let vec_data_map = match get_vec_data_map(data).await {
+            Err(err) => return Err(err),
             Ok(vec) => vec
         };
 
-        //preparing bombardier
+        //Preparing bombardier
         Ok(Bombardier {
             config,
             env_map,
@@ -77,10 +64,77 @@ impl Bombardier {
     }
 }
 
+fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<Request>, Box<dyn Error>> {
+    info!("Preparing bombardier requests");
+    let scenarios_yml = preprocessor::param_substitution(content, &env_map);
+
+    let root: Root = match serde_yaml::from_str(&scenarios_yml) {
+        Ok(r) => r,
+        Err(err) => {
+            error!("Parsing bombardier requests failed: {}", err.to_string());
+            return Err(err.into())
+        }
+    };
+
+    let mut requests = Vec::<Request>::new();
+  
+    for scenario in root.scenarios {
+        for request in scenario.requests {
+            requests.push(request);
+        }
+    } 
+
+    Ok(requests)
+}
+
+fn get_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
+    let mut env_map: HashMap<String, String> = HashMap::with_capacity(30);
+
+    if content == "" {
+        warn!("No environments data is being used for execution");
+        return Ok(env_map);
+    }
+
+    info!("Parsing env map");
+    let env: Environment = match serde_yaml::from_str(content) {
+        Ok(e) => e,
+        Err(err) => {
+            error!("Parsing env content failed: {}", err.to_string());
+            return Err(err.into())
+        }
+    };
+
+    for var in env.variables {
+        let key = var.0.as_str().unwrap().to_string();
+        let value = var.1.as_str().unwrap().to_string();
+        env_map.insert(key, value);
+    }
+
+    Ok(env_map)
+}
+
+async fn get_vec_data_map(data_content: String) -> Result<Vec<HashMap<String, String>>, Box<dyn Error>> {
+    if data_content == "" {
+        warn!("No external data is being used for execution");
+        return Ok(Vec::<HashMap<String, String>>::new())
+    }
+
+    info!("Parsing attack data");
+    let vec_data_map = 
+        csv::CSVReader.get_records(data_content.as_bytes()).await;
+
+    match vec_data_map {
+        Ok(v) => Ok(v),
+        Err(err) => {
+            error!("Preparing attack data failed: {}", err.to_string());
+            Err(err.into())
+        }
+    }
+}
+
 impl Bombardier {
     pub async fn bombard(&self, stats_sender: channel::Sender<Vec<stats::Stats>>)
     -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        
         let no_of_iterations = self.config.iterations;
         let thread_delay = self.config.rampup_time * 1000 / self.config.thread_count;
         let think_time = self.config.think_time;
@@ -89,7 +143,6 @@ impl Bombardier {
         let client_arc = Arc::new(http::get_async_client(&self.config).await?);
         let requests = Arc::new(self.requests.to_owned());
        
-        let data_count = self.vec_data_map.len();
         let vec_data_map_arc = Arc::new(self.vec_data_map.clone());
         let data_counter: usize = 0;
         let data_counter_arc = Arc::new(Mutex::new(data_counter));
@@ -123,21 +176,15 @@ impl Bombardier {
 
                     thread_iteration += 1; //increment iteration
 
+                    //Update env map with data
+                    update_env_map_with_data(&mut env_map_clone, &vec_data_map_clone, data_counter_clone.clone()).await;
+
+                    //Initialize Stats vec
                     let mut vec_stats = Vec::with_capacity(requests_clone.len());
-
-                    //get data set
-                    if data_count > 0 {
-                        let mut data_couter_mg = data_counter_clone.lock().await;
-                        let data_map = get_data_map(&vec_data_map_clone, &mut data_couter_mg, data_count);
-                        drop(data_couter_mg);
-
-                        env_map_clone.extend(data_map.iter().map(|(k, v)| (k.clone(), v.clone())));
-                        debug!("data used for {}-{} : {:?}", thread_cnt, thread_iteration, data_map);
-                    }
                     
                     //looping thru requests
                     for request in requests_clone.iter() {
-                        let processed_request = preprocess(request.to_owned(), &env_map_clone); //transform request
+                        let processed_request = preprocessor::process(request.to_owned(), &env_map_clone); //transform request
                         trace!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
 
                         match http::execute(&client_clone, &processed_request).await {
@@ -181,11 +228,25 @@ impl Bombardier {
     }
 }
 
-fn get_data_map<'a>(vec_data_map: &'a Vec<HashMap<String, String>>, counter: &mut usize, length: usize) -> &'a HashMap<String, String> {
-    let data_map = &vec_data_map[*counter];
-    *counter += 1;
-    if *counter == length { *counter = 0; }
-    &data_map
+async fn update_env_map_with_data(env_map: &mut HashMap<String, String>, vec_data_map: &Vec<HashMap<String, String>>, counter: Arc<Mutex<usize>>) {
+    if vec_data_map.len() > 0 {
+        //get one data set
+        let mut data_couter_mg = counter.lock().await;
+        let data_map = &vec_data_map[*data_couter_mg];
+
+        //increment counter
+        *data_couter_mg += 1;
+
+        //If all data used, set it back to 0
+        if *data_couter_mg == vec_data_map.len() { 
+            *data_couter_mg = 0; 
+        }
+
+        drop(data_couter_mg);
+
+        //update env map
+        env_map.extend(data_map.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
 }
 
 fn is_execution_time_over(start_time: DateTime<Utc>, duration: &u64) -> bool {
@@ -194,17 +255,4 @@ fn is_execution_time_over(start_time: DateTime<Utc>, duration: &u64) -> bool {
 
 fn is_failed_request(status: u16) -> bool {
     status > 399
-}
-
-fn preprocess(request: Request, env_map: &HashMap<String, String>) -> Request {
-    let mut s_request = serde_json::to_string(&request).expect("Request cannot be serialized");
-    s_request = file::param_substitution(s_request, &env_map);
-    match serde_json::from_str(&s_request) {
-        Ok(r) => r,
-        Err(err) => {
-            error!("Unable to deserialize request object after parameter replacement. Returning original request");
-            error!("String: {}, Error: {}", s_request, err);
-            request
-        }
-    }
 }
