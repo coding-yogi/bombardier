@@ -10,6 +10,7 @@ edition = "2018"
 debug = true
 
 [dependencies]
+async-trait = "0.1.51"
 clap = "2.33.3"
 chrono = "0.4.19"
 crossbeam = "0.8.1"

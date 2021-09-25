@@ -8,7 +8,7 @@ use std::{
 use crate::{cmd, file, model::*, report::csv};
 
 pub fn parse_config_from_string(content: String) -> Result<cmd::ExecConfig, Box<dyn std::error::Error>> {
-    let config: cmd::ExecConfig = serde_json::from_str(&content)?;
+    let config: cmd::ExecConfig = serde_yaml::from_str(&content)?;
 
     if config.execution_time == 0 && config.iterations == 0 {
         return Err("Both execution time and iterations cannot be 0".into());
