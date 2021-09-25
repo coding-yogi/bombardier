@@ -88,8 +88,7 @@ impl NodesResponse {
     }
 }
 
-pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<impl Reply, Rejection> {
-    
+pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<impl Reply, Rejection> {   
     //Check if nodes are available
     info!("Checking whether nodes are available for execution");
     let total_nodes = ctx.get_total_nodes().await;

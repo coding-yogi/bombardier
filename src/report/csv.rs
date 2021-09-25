@@ -13,12 +13,9 @@ use tokio::{fs, io::{AsyncWriteExt, AsyncRead}};
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use crate::file;
-
 pub struct CSVReader;
 
 impl CSVReader {
-
     fn get_reader<R>(&self, rdr: R, has_headers: bool) -> AsyncReader<R> 
     where R: AsyncRead + Unpin + Send + Sync {
         AsyncReaderBuilder::new()
@@ -82,7 +79,7 @@ pub struct CSVWriter {
 impl CSVWriter {
     pub async fn new(report_file: &str) -> Result<CSVWriter, std::io::Error> {
         info!("Initiating CSVWriter");
-        let file = file::create_file(report_file).await?;
+        let file = fs::File::create(report_file).await?;
         let mut csv_writer = CSVWriter {
             report_file: file
         };
