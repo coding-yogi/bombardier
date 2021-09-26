@@ -8,7 +8,6 @@ mod report;
 mod server;
 mod storage;
 
-
 use cmd::ExecConfig;
 use log::{info, error};
 use std::sync::Arc;
@@ -129,10 +128,7 @@ async fn get_config<'a>(args_match: Option<&clap::ArgMatches<'a>>) -> Option<Exe
 
     match parser::parse_config_from_string(config_content) {
         Ok(c) => Some(c),
-        Err(err) => {
-            error!("Error while parsing config string content {}", err);
-            None
-        }
+        Err(_) => None
     }
 }
 
