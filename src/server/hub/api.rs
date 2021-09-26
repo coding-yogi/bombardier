@@ -28,7 +28,6 @@ use crate::{
 };
 
 enum ContentType {
-    JSON,
     YML,
     CSV
 }
@@ -36,7 +35,6 @@ enum ContentType {
 impl ContentType {
     pub fn as_str(&self) -> &'static str {
         match self {
-            ContentType::JSON => "application/json",
             ContentType::YML => "text/yaml",
             ContentType::CSV => "text/csv"
         }
@@ -126,7 +124,7 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
             match p.name() {
                 "config" => {
                     config_present = true;
-                    match validate_content_type(&p, ContentType::JSON) {
+                    match validate_content_type(&p, ContentType::YML) {
                         Some(error) =>  errors.push(error),
                         None => config_content = get_stream(p).await
                     };
@@ -165,19 +163,14 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
 
     //Check error vector
     if !errors.is_empty() {
-        return Ok(reply::with_status(
-            reply::json(&errors), StatusCode::BAD_REQUEST));
+        return Ok(reply::with_status(reply::json(&errors), StatusCode::BAD_REQUEST));
     }
 
     //Parse config
     info!("Parsing config file content");
     let mut config = match parser::parse_config_from_string(config_content) {
         Ok(config) => config,
-        Err(err) => {
-            let error = "Error occured while parsing config file";
-            error!("{} : {}", error, &err);
-            return ErrorResponse::new(400, &error).get_warp_reply()
-        }
+        Err(err) => return ErrorResponse::new(400, &err.to_string()).get_warp_reply()
     };
 
     //set distributed to true
@@ -188,8 +181,7 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
     let bombardier = 
     match Bombardier::new(config, environments_content, scenarios_content, data_content).await {
         Ok(bombardier) => bombardier,
-        Err(err) => 
-            return ErrorResponse::new(400, &err.to_string()).get_warp_reply()
+        Err(err) => return ErrorResponse::new(400, &err.to_string()).get_warp_reply()
     };
     
     //Send the bombard message via transmitter
@@ -211,7 +203,6 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
         reply::json(&SuccessResponse{
             message: String::from("execution started successfully")
         }), StatusCode::CREATED))
-
 }
 
 pub async fn stop(_: Arc<servers::Context>) -> Result<impl Reply, Rejection> {
