@@ -12,6 +12,7 @@ use reqwest::{
     Method,
     multipart::{Form,Part}
 };
+use tokio::fs;
 
 use std::{
     collections::HashMap,
@@ -20,7 +21,7 @@ use std::{
     time,
 };
 
-use crate::{cmd, file, model::{Request, Body}};
+use crate::{cmd, model::{Request, Body}};
 
 pub fn get_default_sync_client() -> Client {
     Client::builder()
@@ -31,7 +32,7 @@ pub fn get_default_sync_client() -> Client {
 
 async fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Send + Sync>> {
     info!("Getting certificate file from path {}", path);
-    let cert = match file::read_file(path).await {
+    let cert = match fs::read(path).await {
         Ok(cert) => cert,
         Err(err) => {
             error!("Reading certificate file failed: {}", err);
@@ -50,7 +51,7 @@ async fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Sen
 
 async fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn Error + Send + Sync>> {
     info!("Getting keystore file from path {}", path);
-    let ks = match file::read_file(path).await {
+    let ks = match fs::read(path).await {
         Ok(ks) => ks,
         Err(err) => {
             error!("Reading keystore file failed: {}", err);
@@ -126,8 +127,8 @@ async fn add_multipart_form_data(builder: RequestBuilder, body: &Body)
         let param_value = data.1.as_str().unwrap();
 
         if param_key.to_lowercase().starts_with("_file") {
-            let contents = file::get_content(param_value).await?;
-            let file_name = file::get_file_name(param_value)?;
+            let contents = fs::read_to_string(param_value).await?;
+            let file_name = get_file_name(param_value)?;
             let part = Part::stream(contents).file_name(file_name)
                                 .mime_str("application/octet-stream").unwrap();
             form = form.part("", part);
@@ -137,6 +138,11 @@ async fn add_multipart_form_data(builder: RequestBuilder, body: &Body)
     }
 
     Ok(builder.multipart(form))
+}
+
+fn get_file_name(path: &str) -> Result<String, tokio::io::Error> {
+    let iter = path.split("/");
+    Ok(iter.last().unwrap().to_string())
 }
 
 fn add_url_encoded_data(builder: RequestBuilder, body: &Body) -> RequestBuilder {

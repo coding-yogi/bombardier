@@ -39,7 +39,6 @@ impl Context {
 }
 
 pub async fn serve(port: u16, ws_port: u16) -> Result<(), Box<dyn std::error::Error + 'static>> {
-
     let context_arc = Arc::new(Context {
         bombardiers_map :  Arc::new(Mutex::new(HashMap::new())),
         transmitters_map: Arc::new(Mutex::new(HashMap::new()))
@@ -48,7 +47,6 @@ pub async fn serve(port: u16, ws_port: u16) -> Result<(), Box<dyn std::error::Er
     let context_clone = context_arc.clone();
 
     //Spawing websocket server into separate thread
-    //let handle = 
     task::spawn(async move {
         match websocket::serve(ws_port, context_arc).await {
             Ok(_) => (),
