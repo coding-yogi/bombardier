@@ -11,6 +11,7 @@ debug = true
 
 [dependencies]
 async-trait = "0.1.51"
+base64 = "0.13.0"
 clap = "2.33.3"
 chrono = "0.4.19"
 crossbeam = "0.8.1"

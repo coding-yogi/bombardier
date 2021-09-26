@@ -52,12 +52,6 @@ pub struct Database {
     pub url: String,
 
     #[serde(default)]
-    pub host: String,
-
-    #[serde(default)]
-    pub port: String,
-
-    #[serde(default)]
     pub user: String,
 
     #[serde(default)]
