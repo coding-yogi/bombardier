@@ -4,14 +4,15 @@ pub mod stats;
 use chrono::{DateTime, Duration};
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
+use tokio::fs;
 
 use std::collections::HashSet;
 
-use crate::{file, report::stats::Stats};
+use crate::report::stats::Stats;
 use csv::CSVReader;
 
 pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let file = file::get_file(report_file).await?;
+    let file = fs::File::open(report_file).await?;
     let (names, stats) = get_stats(file).await?;
 
     let mut table = Table::new();
