@@ -18,20 +18,16 @@ pub struct InfluxDBWriter {
 }
 
 impl InfluxDBWriter {
-    pub fn new(influxdb: &cmd::Database) -> Option<InfluxDBWriter> {
+    pub fn new(db: &cmd::Database) -> Option<InfluxDBWriter> {
         //check if url is set
-        if influxdb.url == "" {
-            error!("InfluxDB url is not set, not initializing the InfluxDBWriter");
+        if db.url == "" {
+            error!("InfluxDB url or host is not set, not initializing the InfluxDBWriter");
             return None;
         }
 
-        //Setting URL
-        let mut str_url = format!("{}/write?db={}&precision=ms", influxdb.url, influxdb.name);
-        if influxdb.user != "" {
-            str_url =  format!("{}&u={}&p={}", str_url, influxdb.user, influxdb.password);
-        }
-
-        let url = match url::Url::parse(&str_url) {
+        let db_url= format!("{}/write?db={}&precision=ms", db.url, db.name);
+        
+        let url = match url::Url::parse(&db_url) {
             Ok(url) => url,
             Err(err) => {
                 error!("Error occurred while parsing influx DB url {}", err);
@@ -42,6 +38,11 @@ impl InfluxDBWriter {
         //Setting headers
         let mut headers = serde_yaml::Mapping::with_capacity(1);
         headers.insert(Value::from("content-type"), Value::from("application/octet-stream"));
+
+         //Setting URL
+         if db.user != "" {
+            headers.insert(Value::from("authorization"), Value::from(format!("Basic {}", base64::encode(format!("{}:{}",db.user,db.password)))));
+        }
 
         Some(InfluxDBWriter {
             client: http::get_default_sync_client(),
