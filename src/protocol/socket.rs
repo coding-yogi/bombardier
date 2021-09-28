@@ -7,9 +7,7 @@ use tokio_tungstenite::{
     MaybeTlsStream,
     WebSocketStream as TTWebSocketStream
 };
-use tungstenite::{
-    Message,
-};
+use tungstenite::Message;
 
 use crate::report::stats;
 

@@ -4,15 +4,15 @@ pub mod stats;
 use chrono::{DateTime, Duration};
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
-use tokio::fs;
+use std::fs::File;
 
 use std::collections::HashSet;
 
 use crate::report::stats::Stats;
-use csv::CSVReader;
+use crate::data;
 
 pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let file = fs::File::open(report_file).await?;
+    let file = File::open(report_file)?;
     let (names, stats) = get_stats(file).await?;
 
     let mut table = Table::new();
@@ -52,10 +52,9 @@ pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
-async fn get_stats(report_file: tokio::fs::File) -> Result<(HashSet<String>, Vec<Stats>), Box<dyn std::error::Error>> {
-    let headers_vec = vec!["timestamp", "status", "latency", "name", ];
-    let headers = csv::string_record_from_vec(&headers_vec[..]);
-    let mut stats: Vec<Stats> = CSVReader.get_records_as(report_file, &headers).await.unwrap();
+async fn get_stats(report_file: std::fs::File) -> Result<(HashSet<String>, Vec<Stats>), Box<dyn std::error::Error>> {
+    let mut data_provider = data::DataProvider::new(report_file).await;
+    let mut stats: Vec<Stats> = data_provider.get_records_as().await.unwrap();
 
     let names = stats.iter().map(|s| {
         s.name.clone()
