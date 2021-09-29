@@ -94,15 +94,11 @@ fn extract<T: Extractor>(extractor: T, body: &str, map: &Mapping, env_map: &mut 
 }
 
 pub async fn process(response: Response, extractors: &[model::Extractor], env_map: &mut HashMap<String, String>) -> Result<(), Box<dyn Error + 'static>> {
-    //return if no extractors defined for the request
-    if extractors.len() == 0 {
-        return Ok(())
-    }
-
+   
     let is_json_response = is_json_response(&response);
     let is_xml_response = !is_json_response && is_xml_response(&response);
-    let body = get_response_as_string(response).await;
-
+    let body = get_response_as_string(response).await; 
+    
     for extractor in extractors { 
         match extractor.extractor_type.as_str() {
             "gjsonpath"  => {
