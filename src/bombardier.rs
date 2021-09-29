@@ -68,7 +68,7 @@ impl Bombardier {
         let continue_on_error = self.config.continue_on_error;
     
         //Set up client and requests
-        let client_arc = Arc::new(http::get_async_client(&self.config).await?);
+        let client = http::get_async_client(&self.config).await?;
         let requests_arc = Arc::new(self.requests.to_owned());
        
         //set up data
@@ -91,7 +91,7 @@ impl Bombardier {
 
         for thread_cnt in 0..self.config.thread_count {
             let requests = requests_arc.clone();
-            let client = client_arc.clone();
+            let client = client.clone();
             let mut env_map = self.env_map.clone(); //every thread will mutate this map as per runtime values
             let data_provider = data_provider_arc.clone();
             let stats_sender = stats_sender_arc.clone();
