@@ -21,7 +21,8 @@ if bombarding nodes are greater than 0 , that means execution is in progress
 curl --location --request POST 'http://localhost:9000/bombardier/v1/bombard' \
 --form 'scenarios=@"/Users/ag/bombardier/examples/scenarios.yml"' \
 --form 'environment=@"/Users/ag/bombardier/examples/dev.yml"' \
---form 'config=@"/Users/ag/bombardier/config.json"'
+--form 'config=@"/Users/ag/bombardier/config.yml"' \
+--form 'data="path_of_data_csv_file_on_node"' \
 ```
 
 Output: 201
