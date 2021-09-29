@@ -14,7 +14,7 @@ Ideally you should not face any issues on linux and code should just build with 
 In case its not availble please use respective package managers of your linux flavour and install `pkgconfig` & `libxml2dev` 
 
 ### MacOS
-MacOS may or may not have libxml2 installed but it can be done using `homebrew`, you also need a lib called `pkg-config`. 
+MacOS may or may not have `libxml2` installed but it can be done using `homebrew`, you also need a lib called `pkg-config`. 
   
 Run below commands to install both and then you should be good with your `cargo build`.  
 ```

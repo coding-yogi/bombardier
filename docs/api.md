@@ -13,7 +13,7 @@ Output: 200
     "bombarding_nodes": 0
 }
 ```
-if bombarding nodes are greater than 0 , that means execution is in progress  
+if bombarding nodes are greater than 0, that means execution is in progress  
 
 ## Start Execution
 ### Starts the distributed bombarding from all available nodes

@@ -12,9 +12,7 @@ Below is the explanation of every config parameter mentioned in the config yaml
 |continueOnError               |Whether to continue with iteration when one of the requests fail                        |No                                 |false      |
 |handleCookies                 |Whether bombardier will handle cookies. Mainly used in UI flow                          |No                                 |false      |
 |database: type                |Type of storage used for real time stats, currently only influxdb is supported          |No                                 |           |
-|database: url                 |Connection base URL for DB, If URL is provided then host and port are ignored           |No                                 |           |
-|database: host                |Database host, used only if URL isn't provided                                          |No                                 |           |
-|database: port                |Database port, used only if URL isn't provided                                          |No                                 |           |
+|database: url                 |Connection URL                                                                          |No                                 |           |
 |database: user                |Database username                                                                       |No                                 |           |
 |database: password            |Database password                                                                       |No                                 |           |
 |database: name                |Database Name                                                                           |Yes (if url is provided)           |           |
