@@ -113,7 +113,7 @@ dependencies = [
  "chrono",
  "clap",
  "crossbeam",
- "csv-async",
+ "csv",
  "flexi_logger",
  "futures",
  "gjson",
@@ -385,23 +385,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "csv-async"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c851767e06693380318cacf205c815dfd5fdb83033e4dceebaae7ff1ed6bd9ad"
-dependencies = [
- "bstr",
- "cfg-if 1.0.0",
- "csv-core",
- "futures",
- "itoa",
- "ryu",
- "serde",
- "tokio",
- "tokio-stream",
 ]
 
 [[package]]

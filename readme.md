@@ -116,7 +116,7 @@ Note the volume used. Present working directory on host is mapped to `/home` dir
 With this approach you need not copy your config file or collections file into the container. Make sure you update paths accordingly in config file
 
 ## Running Tests on single instance
-`./bombardier bombard -c <path of config yml> -s <path of scenarios yml> -e <path of env yml>`
+`./bombardier bombard -c <path of config yml> -s <path of scenarios yml> -e <path of env yml> -d <path of data csv>`
   
 
 ## Distributed Tests

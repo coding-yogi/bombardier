@@ -13,8 +13,8 @@ use std::{
 };
 
 use crate::{
-    cmd::{self, Database}, 
-    report::csv, 
+    cmd::{self, Database},
+    report::csv,
     socket, 
     storage::{self, DBWriter, influxdb}
 };
@@ -22,9 +22,9 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Stats {
     pub timestamp: String,
-    pub name: String,
     pub status: u16,
-    pub latency: u128
+    pub latency: u128,
+    pub name: String,
 }
 
 impl Stats {

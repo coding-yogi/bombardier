@@ -1,15 +1,14 @@
 
 use crossbeam::channel::Sender;
 use log::*;
+use tokio::{
+    sync::Mutex,
+    task
+};
 
 use std::{
     collections::HashMap,
     sync::Arc
-};
-
-use tokio::{
-    sync::Mutex,
-    task
 };
 
 use crate::{
