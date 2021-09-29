@@ -73,20 +73,15 @@ impl<R> DataProvider<R> where R: Read + Seek {
     pub async fn get_records_as<T>(&mut self) -> Result<Vec<T>, Error> 
     where T: DeserializeOwned {       
         let _ = self.reader.seek(Position::new());
+        let _ = self.reader.read_record(&mut StringRecord::new()); //Ignoring header row
         let record_stream = self.reader.records();
 
         let headers = self.headers.to_owned();
 
         let vec = record_stream.map(|r| {
-            let sr = match r {
-                Ok(sr) => sr,
-                Err(err) => {
-                    error!("Error occurred while reading record stream {}", err.into());
-                    Err(err)
-                }
-            };
+            let sr = r.unwrap();
             let s: T = sr.deserialize(Some(&headers)).unwrap();
-            
+            s
         }).collect::<Vec<T>>();
 
         Ok(vec)

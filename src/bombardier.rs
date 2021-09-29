@@ -72,8 +72,13 @@ impl Bombardier {
         let requests_arc = Arc::new(self.requests.to_owned());
        
         //set up data
-        let data_file = File::open(&self.config.data_file)?;
-        let data_provider_arc = Arc::new(Mutex::new(DataProvider::new(data_file).await));
+        let data_file = get_data_file(&self.config.data_file)?;
+        let data_provider_arc;
+        if let Some(file) = data_file {
+            data_provider_arc = Arc::new(Mutex::new(Some(DataProvider::new(file).await)));
+        } else {
+            data_provider_arc = Arc::new(Mutex::new(None));
+        }
 
         let stats_sender_arc = Arc::new(stats_sender.clone());
         
@@ -155,14 +160,33 @@ impl Bombardier {
     }
 }
 
-async fn update_env_map_with_data(env_map: &mut HashMap<String, String>, data_provider: Arc<Mutex<DataProvider<File>>>) {
-        //get record
-        let mut dp = data_provider.lock().await;
-        let data_map = dp.get_data().await;
+
+fn get_data_file(file_path: &str) -> Result<Option<File>, Box<dyn std::error::Error + Send + Sync>> {
+    if file_path.trim() == "" {
+        return Ok(None)
+    }
+
+    let file = match File::open(file_path) {
+        Ok(file) => file,
+        Err(err) => {
+            error!("Error while reading data file {}", err);
+            return Err(err.into())
+        }
+    };
+
+    Ok(Some(file))
+}
+
+async fn update_env_map_with_data(env_map: &mut HashMap<String, String>, data_provider: Arc<Mutex<Option<DataProvider<File>>>>) {
+    //get record
+    let mut data_provider_mg = data_provider.lock().await; 
         
-        //update env map
-        env_map.extend(data_map.iter().map(|(k, v)| (k.clone(), v.clone())));
+    if let Some(data_provider) = data_provider_mg.as_mut() {
+        let data_map = data_provider.get_data().await;
     
+        //update env map
+        env_map.extend(data_map.iter().map(|(k, v)| (k.clone(), v.clone())));    
+    }     
 }
 
 fn is_execution_time_over(start_time: DateTime<Utc>, duration: &u64) -> bool {
