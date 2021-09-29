@@ -28,15 +28,13 @@ use crate::{
 };
 
 enum ContentType {
-    YML,
-    CSV
+    YML
 }
 
 impl ContentType {
     pub fn as_str(&self) -> &'static str {
         match self {
-            ContentType::YML => "text/yaml",
-            ContentType::CSV => "text/csv"
+            ContentType::YML => "text/yaml"
         }
     }
 }
@@ -115,10 +113,10 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
     let mut config_content = String::new();
     let mut scenarios_content = String::new();
     let mut environments_content = String::new();
-    let mut data_content = String::new();
+    let mut data_file_path = String::new();
 
     //Check if all files received
-    for p in parts {
+    for mut p in parts {
         if p.filename().is_some() {
             info!("Reading {} param", p.name());
             match p.name() {
@@ -142,16 +140,29 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
                         None => environments_content = get_stream(p).await
                     };
                 },
-                "data" => {
-                    match validate_content_type(&p, ContentType::CSV) {
-                        Some(error) =>  errors.push(error),
-                        None => data_content = get_stream(p).await
-                    };
-                },
                 _ => {
                     error!("Invalid parameter name {}", p.name());
                 }
             }
+        } else if p.name() == "data" {
+            data_file_path = match p.data().await {
+                Some(path) => match path {
+                    Ok(mut b) => {
+                        let mut v = Vec::new();
+                        while b.has_remaining() {
+                            v.push(b.get_u8());
+                        };
+
+                        from_utf8(&v).unwrap().to_owned()
+                    },
+                    Err(err) => {
+                        error!("Error occured while reading the data: {}", err.to_string());
+                        errors.push(ErrorResponse::new(400, "Error occured while reading the data"));
+                        String::with_capacity(0)
+                    }
+                },
+                None => String::with_capacity(0)
+            };
         }
     }
 
@@ -168,18 +179,19 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
 
     //Parse config
     info!("Parsing config file content");
-    let mut config = match parser::parse_config_from_string(config_content) {
+    let mut config = match parser::parse_config(config_content) {
         Ok(config) => config,
         Err(err) => return ErrorResponse::new(400, &err.to_string()).get_warp_reply()
     };
 
     //set distributed to true
     config.distributed = true;
+    config.data_file = data_file_path;
 
     //Prepare bombardier message
     info!("Preparing bombardier message");
     let bombardier = 
-    match Bombardier::new(config, environments_content, scenarios_content, data_content).await {
+    match Bombardier::new(config, environments_content, scenarios_content) {
         Ok(bombardier) => bombardier,
         Err(err) => return ErrorResponse::new(400, &err.to_string()).get_warp_reply()
     };

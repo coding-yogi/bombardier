@@ -15,7 +15,7 @@ base64 = "0.13.0"
 clap = "2.33.3"
 chrono = "0.4.19"
 crossbeam = "0.8.1"
-csv-async = {version = "1.2.1", features = ["tokio"]}
+csv = "1.1"
 flexi_logger = { version = "0.18.0", features = ["colors"] }
 futures = "0.3.16"
 gjson = "0.8.0"

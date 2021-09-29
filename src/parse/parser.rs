@@ -1,8 +1,13 @@
-use log::{error,warn};
+use log::{error, info, warn};
 
-use crate::cmd;
+use std::{
+    collections::HashMap,
+    error::Error
+};
 
-pub fn parse_config_from_string(content: String) -> Result<cmd::ExecConfig, Box<dyn std::error::Error>> {
+use crate::{cmd, model, parse::preprocessor};
+
+pub fn parse_config(content: String) -> Result<cmd::ExecConfig, Box<dyn std::error::Error>> {
     let config: cmd::ExecConfig = match serde_yaml::from_str(&content) {
         Ok(c) => c,
         Err(err) => {
@@ -20,4 +25,53 @@ pub fn parse_config_from_string(content: String) -> Result<cmd::ExecConfig, Box<
     }
 
     Ok(config)
+}
+
+pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<model::Request>, Box<dyn Error>> {
+    info!("Preparing bombardier requests");
+    let scenarios_yml = preprocessor::param_substitution(content, &env_map);
+
+    let root: model::Root = match serde_yaml::from_str(&scenarios_yml) {
+        Ok(r) => r,
+        Err(err) => {
+            error!("Parsing bombardier requests failed: {}", err.to_string());
+            return Err(err.into())
+        }
+    };
+
+    let mut requests = Vec::<model::Request>::new();
+  
+    for scenario in root.scenarios {
+        for request in scenario.requests {
+            requests.push(request);
+        }
+    } 
+
+    Ok(requests)
+}
+
+pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
+    let mut env_map: HashMap<String, String> = HashMap::with_capacity(30);
+
+    if content == "" {
+        warn!("No environments data is being used for execution");
+        return Ok(env_map);
+    }
+
+    info!("Parsing env map");
+    let env: model::Environment = match serde_yaml::from_str(content) {
+        Ok(e) => e,
+        Err(err) => {
+            error!("Parsing env content failed: {}", err.to_string());
+            return Err(err.into())
+        }
+    };
+
+    for var in env.variables {
+        let key = var.0.as_str().unwrap().to_string();
+        let value = var.1.as_str().unwrap().to_string();
+        env_map.insert(key, value);
+    }
+
+    Ok(env_map)
 }

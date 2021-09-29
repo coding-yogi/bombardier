@@ -1,5 +1,6 @@
 mod bombardier;
 mod cmd;
+mod data;
 mod logger;
 mod model;
 mod parse;
@@ -36,7 +37,7 @@ async fn main()  {
     match subcommand {
         "bombard" => {
             //Get config
-            let config = match get_config(arg_matches).await {
+            let mut config = match get_config(arg_matches).await {
                 Some(c) => c,
                 None => return
             };
@@ -53,15 +54,11 @@ async fn main()  {
                 None => return
             };
 
-            //Get data file content
-            let data_content = match get_arg_file_content(arg_matches, cmd::DATA_FILE_ARG_NAME).await {
-                Some(c) => c,
-                None => return
-            };
+            //Get data file path
+            config.data_file = cmd::arg_value_as_str(arg_matches, cmd::DATA_FILE_ARG_NAME);
 
             info!("Prepare bombardier");
-            let bombardier = 
-                    Bombardier::new(config, env_content, scenarios_content, data_content).await.unwrap();
+            let bombardier = Bombardier::new(config, env_content, scenarios_content).unwrap();
             
             let (stats_sender,  stats_receiver_handle) = 
             match stats::StatsConsumer::new(&bombardier.config, Arc::new(Mutex::new(None))).await {
@@ -126,7 +123,7 @@ async fn get_config<'a>(args_match: Option<&clap::ArgMatches<'a>>) -> Option<Exe
         Ok(content) => content
     };
 
-    match parser::parse_config_from_string(config_content) {
+    match parser::parse_config(config_content) {
         Ok(c) => Some(c),
         Err(_) => None
     }

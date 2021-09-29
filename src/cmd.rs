@@ -29,9 +29,6 @@ pub struct ExecConfig {
     pub handle_cookies: bool,
 
     #[serde(default)]
-    pub distributed: bool,
-
-    #[serde(default)]
     #[serde(rename = "continueOnError")]
     pub continue_on_error: bool,
 
@@ -39,7 +36,14 @@ pub struct ExecConfig {
     pub database: Database,
 
     #[serde(default)]
-    pub ssl: Ssl
+    pub ssl: Ssl,
+
+    #[serde(skip_deserializing)]
+    pub distributed: bool,
+
+    #[serde(skip_deserializing)]
+    pub data_file: String
+
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
