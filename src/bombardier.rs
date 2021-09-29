@@ -73,6 +73,8 @@ impl Bombardier {
        
         //set up data
         let data_file = get_data_file(&self.config.data_file)?;
+        let is_data_provided = data_file.is_some();
+
         let data_provider_arc;
         if let Some(file) = data_file {
             data_provider_arc = Arc::new(Mutex::new(Some(DataProvider::new(file).await)));
@@ -109,7 +111,9 @@ impl Bombardier {
                     thread_iteration += 1; //increment iteration
 
                     //Update env map with data
-                    update_env_map_with_data(&mut env_map, data_provider.clone()).await;
+                    if is_data_provided {
+                        update_env_map_with_data(&mut env_map, data_provider.clone()).await;
+                    }
 
                     //Initialize Stats vec
                     let mut vec_stats = Vec::with_capacity(requests.len());
