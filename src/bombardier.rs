@@ -1,6 +1,6 @@
 use chrono::{Utc, DateTime};
 use crossbeam::channel;
-use log::{debug, error, warn, trace};
+use log::{debug, error, warn};
 use reqwest::Request as Reqwest;
 use serde::{Serialize, Deserialize};
 use tokio::{
@@ -17,11 +17,19 @@ use std::{
     sync::Arc
 };
 
-use crate::{cmd, converter, data::DataProvider, model::*, parse::{
+use crate::{
+    cmd, 
+    converter, 
+    data::DataProvider, 
+    model::*, 
+    parse::{
         parser,
         preprocessor,
         postprocessor
-    }, protocol::http::{self, HttpClient}, report::stats};
+    }, 
+    protocol::http::{self, HttpClient}, 
+    report::stats
+};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct  Bombardier {
