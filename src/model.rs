@@ -16,8 +16,8 @@ pub struct Environment {
 pub struct Scenario {
     pub name: String,
 
-    #[serde(rename = "threadCount")]
-    pub thread_count: i32,
+    //#[serde(rename = "threadCount")]
+    //pub thread_count: i32,
 
     #[serde(default)]
     pub requests: Vec<Request>,
