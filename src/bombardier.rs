@@ -68,11 +68,13 @@ impl Bombardier {
         let continue_on_error = self.config.continue_on_error;
     
         //Set up client and requests
-        let client_arc = Arc::new(http::get_async_client(&self.config).await?);
+        let client = http::get_async_client(&self.config).await?;
         let requests_arc = Arc::new(self.requests.to_owned());
        
         //set up data
         let data_file = get_data_file(&self.config.data_file)?;
+        let is_data_provided = data_file.is_some();
+
         let data_provider_arc;
         if let Some(file) = data_file {
             data_provider_arc = Arc::new(Mutex::new(Some(DataProvider::new(file).await)));
@@ -89,7 +91,7 @@ impl Bombardier {
 
         for thread_cnt in 0..self.config.thread_count {
             let requests = requests_arc.clone();
-            let client = client_arc.clone();
+            let client = client.clone();
             let mut env_map = self.env_map.clone(); //every thread will mutate this map as per runtime values
             let data_provider = data_provider_arc.clone();
             let stats_sender = stats_sender_arc.clone();
@@ -109,7 +111,9 @@ impl Bombardier {
                     thread_iteration += 1; //increment iteration
 
                     //Update env map with data
-                    update_env_map_with_data(&mut env_map, data_provider.clone()).await;
+                    if is_data_provided {
+                        update_env_map_with_data(&mut env_map, data_provider.clone()).await;
+                    }
 
                     //Initialize Stats vec
                     let mut vec_stats = Vec::with_capacity(requests.len());
