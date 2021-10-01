@@ -1,34 +1,35 @@
 use log::{error, info, warn};
 use reqwest::{
     Client, 
+    Request,
     Response, 
-    RequestBuilder,
-    header::{
-        HeaderMap, 
-        HeaderName, 
-        HeaderValue},
     Certificate, 
-    Identity, 
-    Method,
-    multipart::{Form,Part}
+    Identity
 };
 use tokio::fs;
 
 use std::{
-    collections::HashMap,
     error::Error,
-    str::FromStr,
     time,
 };
 
-use crate::{cmd, model::{Request, Body}};
+use crate::{cmd};
 
-pub fn get_default_sync_client() -> Client {
-    Client::builder()
-        .user_agent("bombardier")
-        .build()
-        .expect("Unable to create default sync client")
-} 
+pub struct HttpClient {
+    client: Client,
+}
+
+impl HttpClient {
+    pub async fn new(config: &cmd::ExecConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let client = get_async_client(config).await?;
+
+        Ok(HttpClient {client})
+    }
+
+    pub fn get_client(&self) -> &Client {
+        &self.client
+    }
+}
 
 async fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Send + Sync>> {
     info!("Getting certificate file from path {}", path);
@@ -67,12 +68,7 @@ async fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn Er
     Err("Keystore should be in .p12 or .pfx format".into())
 }
 
-fn is_method_valid(method_name: &str) -> bool {
-    let method = method_name.to_uppercase();
-    !(method != "GET" && method != "POST" && method != "PUT" && method != "PATCH" && method != "OPTIONS")
-}
-
-pub async fn get_async_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Error + Send + Sync>> {
+async fn get_async_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Error + Send + Sync>> {
     let mut client_builder = Client::builder()
         .user_agent("bombardier")
         .use_native_tls();
@@ -107,86 +103,23 @@ pub async fn get_async_client(config: &cmd::ExecConfig)  -> Result<Client, Box<d
     Ok(client_builder.build()?)
 }
 
-fn get_header_map_from_request(request: &Request) 
--> Result<HeaderMap, Box<dyn Error + Send + Sync>> {
-    let mut headers = HeaderMap::new();
-    for header in &request.headers {
-        headers.insert(HeaderName::from_str(header.0.as_str().unwrap())?, 
-        HeaderValue::from_str(header.1.as_str().unwrap())?);
+impl HttpClient {
+    pub async fn execute(&self, request: Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {  
+        //Initialising timestamps
+        let start_time = time::Instant::now();
+        let resp = self.client.execute(request).await?;
+        let end_time = start_time.elapsed().as_millis();
+       
+        Ok((resp, end_time))
     }
-
-    Ok(headers)
 }
 
-async fn add_multipart_form_data(builder: RequestBuilder, body: &Body) 
--> Result<RequestBuilder, Box<dyn Error + Send + Sync>> {
-    let mut form = Form::new();
+impl HttpClient {
+    pub fn get_default_sync_client() -> Result<HttpClient, reqwest::Error> {
+        let client = Client::builder()
+            .user_agent("bombardier")
+            .build()?;
 
-    for data in &body.formdata {
-        let param_key = data.0.as_str().unwrap();
-        let param_value = data.1.as_str().unwrap();
-
-        if param_key.to_lowercase().starts_with("_file") {
-            let contents = fs::read_to_string(param_value).await?;
-            let file_name = get_file_name(param_value)?;
-            let part = Part::stream(contents).file_name(file_name)
-                                .mime_str("application/octet-stream").unwrap();
-            form = form.part("", part);
-        } else {
-            form = form.text(param_key.to_owned(), param_value.to_owned());
-        }
-    }
-
-    Ok(builder.multipart(form))
-}
-
-fn get_file_name(path: &str) -> Result<String, tokio::io::Error> {
-    let iter = path.split("/");
-    Ok(iter.last().unwrap().to_string())
-}
-
-fn add_url_encoded_data(builder: RequestBuilder, body: &Body) -> RequestBuilder {
-    let mut params = HashMap::with_capacity(body.urlencoded.len());
-
-    body.urlencoded.iter().for_each(|(k,v)| {
-        params.insert(k.as_str().unwrap().to_owned(), v.as_str().unwrap().to_owned());
-    });
-
-    builder.form(&params)
-}
-
-pub async fn execute(client: &Client, request: &Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {  
-    //Check if method is valid, else return error
-    let method_name = &request.method.to_uppercase();
-    let method = Method::from_str(method_name)?;
-    if !is_method_valid(&method_name) {
-        return Err(format!("Invalid method {} found for request {}", method_name, request.name).into())
-    }
-
-    //Create HeaderMap
-    let headers = match get_header_map_from_request(&request) {
-        Ok(headers) => headers,
-        Err(err) => return Err(err)
-    };
-
-    //Create builder
-    let mut builder = client.request(method, request.url.to_owned()).headers(headers);
-
-    //Add required body
-    let body = &request.body;
-
-    if body.raw != ""  {
-        builder = builder.body(body.raw.to_owned());
-    } else if body.formdata.len() != 0 {
-        builder = add_multipart_form_data(builder, body).await?;
-    } else if body.urlencoded.len() != 0 {
-        builder = add_url_encoded_data(builder, body);
+        Ok(HttpClient {client})
     } 
-
-    //Initialising timestamps
-    let start_time = time::Instant::now();
-    let resp = builder.send().await?;
-    let end_time = start_time.elapsed().as_millis();
-   
-    Ok((resp, end_time))
 }

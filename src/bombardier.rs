@@ -1,31 +1,27 @@
 use chrono::{Utc, DateTime};
 use crossbeam::channel;
-use log::{error, warn, trace};
+use log::{debug, error, warn, trace};
+use reqwest::Request as Reqwest;
 use serde::{Serialize, Deserialize};
 use tokio::{
     sync::Mutex,
     task::spawn,
     time
 };
+use uuid::Uuid;
 
 use std::{
+    error::Error,
     fs::File,
     collections::HashMap,
     sync::Arc
 };
 
-use crate::{
-    cmd, 
-    data::DataProvider, 
-    model::*, 
-    parse::{
+use crate::{cmd, converter, data::DataProvider, model::*, parse::{
         parser,
         preprocessor,
         postprocessor
-    }, 
-    protocol::http, 
-    report::stats
-};
+    }, protocol::http::{self, HttpClient}, report::stats};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct  Bombardier {
@@ -36,7 +32,7 @@ pub struct  Bombardier {
 
 impl Bombardier {
     pub fn new(config: cmd::ExecConfig, env: String, scenarios: String) 
-     -> Result<Bombardier, Box<dyn std::error::Error>>  {
+     -> Result<Bombardier, Box<dyn Error>>  {
         //Prepare environment map
         let env_map = match parser::parse_env_map(&env) {
             Err(err) => return Err(err),
@@ -60,7 +56,7 @@ impl Bombardier {
 
 impl Bombardier {
     pub async fn bombard(&self, stats_sender: channel::Sender<Vec<stats::Stats>>)
-    -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    -> Result<(), Box<dyn Error + Send + Sync>> {
         //Setting execution config
         let no_of_iterations = self.config.iterations;
         let thread_delay = self.config.rampup_time * 1000 / self.config.thread_count;
@@ -68,8 +64,8 @@ impl Bombardier {
         let continue_on_error = self.config.continue_on_error;
     
         //Set up client and requests
-        let client = http::get_async_client(&self.config).await?;
-        let requests_arc = Arc::new(self.requests.to_owned());
+        let client = Arc::new(http::HttpClient::new(&self.config).await?);
+        let requests = Arc::new(self.requests.to_owned());
        
         //set up data
         let data_file = get_data_file(&self.config.data_file)?;
@@ -90,13 +86,15 @@ impl Bombardier {
         let execution_time = self.config.execution_time;
 
         for thread_cnt in 0..self.config.thread_count {
-            let requests = requests_arc.clone();
+            let requests = requests.clone();
             let client = client.clone();
             let mut env_map = self.env_map.clone(); //every thread will mutate this map as per runtime values
             let data_provider = data_provider_arc.clone();
             let stats_sender = stats_sender_arc.clone();
 
             let mut thread_iteration = 0;
+
+            let mut request_cache = HashMap::with_capacity(requests.len());
 
             let handle = spawn(async move {
                 loop {
@@ -120,10 +118,23 @@ impl Bombardier {
                     
                     //looping thru requests
                     for request in requests.iter() {
-                        let processed_request = preprocessor::process(request.to_owned(), &env_map); //transform request
-                        trace!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
+                        let reqwest = match process_request(client.as_ref(), &mut request_cache, &request, &env_map).await {
+                            Ok(reqwest) => Some(reqwest),
+                            Err(err) => {
+                                error!("Error occured while processing request {} : {}", &request.name, err);
+                                None
+                            }
+                        };
 
-                        match http::execute(&client, &processed_request).await {
+                        if reqwest.is_none() {
+                            if continue_on_error {
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        match client.execute(reqwest.unwrap()).await {
                             Ok((response, latency)) => {
                                 let new_stats = stats::Stats::new(&request.name, response.status().as_u16(), latency);
                                 vec_stats.push(new_stats); //Add stats to vector
@@ -165,7 +176,41 @@ impl Bombardier {
 }
 
 
-fn get_data_file(file_path: &str) -> Result<Option<File>, Box<dyn std::error::Error + Send + Sync>> {
+async fn process_request(http_client: &HttpClient, cache: &mut HashMap<Uuid, Reqwest>, request: &Request, env_map: &HashMap<String, String>) 
+-> Result<Reqwest, Box<dyn Error + Send + Sync>> {
+    //check if request requires processing
+    if !request.requires_preprocessing {
+         //Search the request in cache, if found return
+        if let Some(reqwest) = cache.get(&request.id) {
+            debug!("Using request from cache");
+            return Ok(reqwest.try_clone().unwrap()); //This would work safely if we were able to add reqwest to map
+        } else {
+            debug!("Request not requiring post processing not found in cache");
+            let reqwest = match converter::convert_request(http_client, request).await {
+                Ok(reqwest) => reqwest,
+                Err(err) => {
+                    error!("Cannot convert request into reqwest object");
+                    return Err(err);
+                }
+            };
+
+            //Try to add to cache if reqwest can be cloned, if not just return 
+            if let Some(reqwest) = reqwest.try_clone() {
+                debug!("Adding request to cache");
+                cache.insert(request.id.to_owned(), reqwest);
+            }
+            
+            return Ok(reqwest);
+        }
+    } else { //this request always needs processing so cannot be cached      
+        debug!("Preprocessing request"); 
+        let processed_request = preprocessor::process(request.to_owned(), &env_map); 
+        converter::convert_request(http_client, &processed_request).await
+    }
+}
+
+
+fn get_data_file(file_path: &str) -> Result<Option<File>, Box<dyn Error + Send + Sync>> {
     if file_path.trim() == "" {
         return Ok(None)
     }

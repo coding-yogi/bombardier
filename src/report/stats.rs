@@ -1,6 +1,6 @@
 use chrono::Utc;
 use crossbeam::channel;
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 
 use serde::{Serialize, Deserialize};
 use tokio::{net::TcpStream, sync::Mutex, task};

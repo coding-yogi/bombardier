@@ -42,12 +42,20 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
     let mut requests = Vec::<model::Request>::new();
   
     for scenario in root.scenarios {
-        for request in scenario.requests {
+        for mut request in scenario.requests {
+            request.id = uuid::Uuid::new_v4();
+            request.requires_preprocessing = param_substitution_required(&request);
             requests.push(request);
         }
     } 
 
     Ok(requests)
+}
+
+
+fn param_substitution_required(request: &model::Request) -> bool {
+    let request_string = serde_yaml::to_string(request).unwrap();
+    request_string.contains("{{")
 }
 
 pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {

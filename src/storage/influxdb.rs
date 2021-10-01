@@ -1,19 +1,12 @@
 use async_trait::async_trait;
 use chrono::DateTime;
 use log::error;
-use reqwest::Client;
 use serde_yaml::{Mapping, Value};
 
-use crate::{
-    cmd,
-    model,
-    protocol::http,
-    report::stats,
-    storage
-};
+use crate::{cmd, converter, model, protocol::http::HttpClient, report::stats, storage};
 
 pub struct InfluxDBWriter {
-    pub client: Client,
+    pub client: HttpClient,
     request: model::Request,
 }
 
@@ -44,21 +37,29 @@ impl InfluxDBWriter {
             headers.insert(Value::from("authorization"), Value::from(format!("Basic {}", base64::encode(format!("{}:{}",db.user,db.password)))));
         }
 
-        Some(InfluxDBWriter {
-            client: http::get_default_sync_client(),
-            request: model::Request {
-                name: String::from("postToInfluxDB"),
-                url: url,
-                method: String::from("POST"),
-                body: model::Body {
-                    formdata: Mapping::with_capacity(0),
-                    urlencoded: Mapping::with_capacity(0),
-                    raw: String::from(""),
-                },
-                headers: headers,
-                extractors: vec![]
+        match HttpClient::get_default_sync_client() {
+            Ok(http_client) =>  Some(InfluxDBWriter {
+                client: http_client,
+                request: model::Request {
+                    id: uuid::Uuid::new_v4(),
+                    name: String::from("postToInfluxDB"),
+                    url: url,
+                    method: String::from("POST"),
+                    body: model::Body {
+                        formdata: Mapping::with_capacity(0),
+                        urlencoded: Mapping::with_capacity(0),
+                        raw: String::from(""),
+                    },
+                    headers: headers,
+                    extractors: vec![],
+                    requires_preprocessing: false
+                }
+            }),
+            Err(err) => {
+                error!("Error while initiating new InfluxDB Client {}", err.to_string());
+                None
             }
-        })
+        }
     }
 
     fn set_body_from_stats(&mut self, stats: &[stats::Stats]) {
@@ -75,7 +76,9 @@ impl storage::DBWriter for InfluxDBWriter {
         //Setting Body
         self.set_body_from_stats(&stats);
 
-        match http::execute(&self.client, &self.request).await {
+        let reqwest = converter::convert_request(&self.client, &self.request).await.unwrap();
+
+        match self.client.execute(reqwest).await {
             Ok(_res) => (),
             Err(err) => error!("Error writing to influxdb: {}", err)
         };
