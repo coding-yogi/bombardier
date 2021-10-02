@@ -13,7 +13,7 @@ pub struct InfluxDBWriter {
 impl InfluxDBWriter {
     pub fn new(db: &cmd::Database) -> Option<InfluxDBWriter> {
         //check if url is set
-        if db.url == "" {
+        if db.url.is_empty() {
             error!("InfluxDB url or host is not set, not initializing the InfluxDBWriter");
             return None;
         }
@@ -33,7 +33,7 @@ impl InfluxDBWriter {
         headers.insert(Value::from("content-type"), Value::from("application/octet-stream"));
 
          //Setting URL
-         if db.user != "" {
+         if !db.user.is_empty() {
             headers.insert(Value::from("authorization"), Value::from(format!("Basic {}", base64::encode(format!("{}:{}",db.user,db.password)))));
         }
 
@@ -43,14 +43,14 @@ impl InfluxDBWriter {
                 request: model::Request {
                     id: uuid::Uuid::new_v4(),
                     name: String::from("postToInfluxDB"),
-                    url: url,
+                    url,
                     method: String::from("POST"),
                     body: model::Body {
                         formdata: Mapping::with_capacity(0),
                         urlencoded: Mapping::with_capacity(0),
                         raw: String::from(""),
                     },
-                    headers: headers,
+                    headers,
                     extractors: vec![],
                     requires_preprocessing: false
                 }
@@ -74,7 +74,7 @@ impl InfluxDBWriter {
 impl storage::DBWriter for InfluxDBWriter {
     async fn write_stats(&mut self, stats: &[stats::Stats]) {
         //Setting Body
-        self.set_body_from_stats(&stats);
+        self.set_body_from_stats(stats);
 
         let reqwest = converter::convert_request(&self.client, &self.request).await.unwrap();
 

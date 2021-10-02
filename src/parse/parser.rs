@@ -29,7 +29,7 @@ pub fn parse_config(content: String) -> Result<cmd::ExecConfig, Box<dyn std::err
 
 pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<model::Request>, Box<dyn Error>> {
     info!("Preparing bombardier requests");
-    let scenarios_yml = preprocessor::param_substitution(content, &env_map);
+    let scenarios_yml = preprocessor::param_substitution(content, env_map);
 
     let root: model::Root = match serde_yaml::from_str(&scenarios_yml) {
         Ok(r) => r,
@@ -61,7 +61,7 @@ fn param_substitution_required(request: &model::Request) -> bool {
 pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
     let mut env_map: HashMap<String, String> = HashMap::with_capacity(30);
 
-    if content == "" {
+    if content.is_empty() {
         warn!("No environments data is being used for execution");
         return Ok(env_map);
     }

@@ -26,7 +26,7 @@ pub async fn convert_request(http_client: &HttpClient, request: &Request) -> Res
     let method = Method::from_str(&request.method)?;
 
     //Headers
-    let headers = match get_header_map_from_request(&request) {
+    let headers = match get_header_map_from_request(request) {
         Ok(headers) => headers,
         Err(err) => return Err(err)
     };
@@ -39,11 +39,11 @@ pub async fn convert_request(http_client: &HttpClient, request: &Request) -> Res
     //Body
     let body = &request.body;
 
-    if body.raw != ""  {
+    if !body.raw.is_empty()  {
         builder = builder.body(body.raw.to_owned());
-    } else if body.formdata.len() != 0 {
+    } else if !body.formdata.is_empty() {
         builder = add_multipart_form_data(builder, body).await?;
-    } else if body.urlencoded.len() != 0 {
+    } else if !body.urlencoded.is_empty() {
         builder = add_url_encoded_data(builder, body);
     } 
 
@@ -84,7 +84,7 @@ async fn add_multipart_form_data(builder: RequestBuilder, body: &Body)
 }
 
 fn get_file_name(path: &str) -> Result<String, tokio::io::Error> {
-    let iter = path.split("/");
+    let iter = path.split('/');
     Ok(iter.last().unwrap().to_string())
 }
 

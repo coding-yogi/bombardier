@@ -125,7 +125,7 @@ impl Bombardier {
                     
                     //looping thru requests
                     for request in requests.iter() {
-                        let reqwest = match process_request(client.as_ref(), &request, &env_map).await {
+                        let reqwest = match process_request(client.as_ref(), request, &env_map).await {
                             Ok(reqwest) => Some(reqwest),
                             Err(err) => {
                                 error!("Error occured while processing request {} : {}", &request.name, err);
@@ -186,7 +186,7 @@ async fn process_request(http_client: &HttpClient, request: &Request, env_map: &
 -> Result<Reqwest, Box<dyn Error + Send + Sync>> {
     if request.requires_preprocessing {
         debug!("Preprocessing request"); 
-        let processed_request = preprocessor::process(request.to_owned(), &env_map); 
+        let processed_request = preprocessor::process(request.to_owned(), env_map); 
         return converter::convert_request(http_client, &processed_request).await
     } else {
         return converter::convert_request(http_client, request).await 

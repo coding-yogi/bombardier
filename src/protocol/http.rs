@@ -87,13 +87,13 @@ async fn get_async_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn E
             client_builder = client_builder.danger_accept_invalid_hostnames(true);
         }
     
-        if config.ssl.certificate != "" {
+        if !config.ssl.certificate.is_empty() {
             let cert = get_certificate(&config.ssl.certificate).await?;
             info!("Adding new trusted certificate {}", &config.ssl.certificate);
             client_builder = client_builder.add_root_certificate(cert);
         }
 
-        if config.ssl.keystore != "" {
+        if !config.ssl.keystore.is_empty() {
             let ks = get_identity(&config.ssl.keystore, &config.ssl.keystore_password).await?;
             info!("Adding new keystore {}", &config.ssl.keystore);
             client_builder = client_builder.identity(ks);

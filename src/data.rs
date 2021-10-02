@@ -53,19 +53,18 @@ impl<R> DataProvider<R> where R: Read + Seek {
         let mut record = StringRecord::new();
         match self.reader.read_record(&mut record) {
             Ok(record_read) => {
-                if record_read {
-                    return Some(record);
-                } else {
+                if !record_read {
                     info!("End of file reached for data file, reseting position");
                     let _ = self.reader.seek(Position::new());
                     let _ = self.reader.read_record(&mut record); //Ignoring header row
                     let _ = self.reader.read_record(&mut record);
-                    return Some(record);
-                }
+                } 
+                    
+                Some(record)
             }, 
             Err(err) => {
                 error!("Error occurred while reading record {}", err.to_string());
-                return None;
+                None
             }
         }
     }

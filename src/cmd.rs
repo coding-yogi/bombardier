@@ -135,7 +135,7 @@ where D: Deserializer<'de> {
 fn check_der_or_pem <'de, D>(deserializer: D) -> Result<String, D::Error> 
 where D: Deserializer<'de> {   
     let val = String::deserialize(deserializer)?;
-    if val != "" && !(val.ends_with(DER_EXT) || val.ends_with(PEM_EXT)){
+    if !(val.is_empty() || val.ends_with(DER_EXT) || val.ends_with(PEM_EXT)){
         return Err(Error::custom("File should be a .pem or .der file"))
     }
 
@@ -145,7 +145,7 @@ where D: Deserializer<'de> {
 fn check_p12_or_pfx <'de, D>(deserializer: D) -> Result<String, D::Error> 
 where D: Deserializer<'de> {   
     let val = String::deserialize(deserializer)?;
-    if val != "" && !(val.ends_with(P12_EXT) || val.ends_with(PFX_EXT)){
+    if !(val.is_empty() || val.ends_with(P12_EXT) || val.ends_with(PFX_EXT)){
         return Err(Error::custom("File should be a .p12 or .pfx file"))
     }
 
@@ -180,43 +180,43 @@ pub fn create_cmd_app<'a, 'b>() -> App<'a, 'b> {
         .subcommand(SubCommand::with_name("bombard")
                 .about("Executes the test")
                 .args(&[
-                    get_arg(&CONFIG_FILE_ARG_NAME, "c", true, "Execution config yml file")
+                    get_arg(CONFIG_FILE_ARG_NAME, "c", true, "Execution config yml file")
                     .validator(is_yaml)
                     .display_order(0),
 
-                    get_arg(&SCENARIOS_FILE_ARG_NAME, "s", true, "Scenarios yml file")
+                    get_arg(SCENARIOS_FILE_ARG_NAME, "s", true, "Scenarios yml file")
                     .validator(is_yaml)
                     .display_order(1),
 
-                    get_arg(&ENVIRONMENT_FILE_ARG_NAME, "e", false, "Environment yml file")
+                    get_arg(ENVIRONMENT_FILE_ARG_NAME, "e", false, "Environment yml file")
                     .validator(is_yaml)
                     .display_order(2),
 
-                    get_arg(&DATA_FILE_ARG_NAME, "d", false, "Data csv file")
+                    get_arg(DATA_FILE_ARG_NAME, "d", false, "Data csv file")
                     .validator(is_csv)
                     .display_order(3),
 
-                    get_arg(&REPORT_FILE_ARG_NAME, "r", false, "report csv file")
+                    get_arg(REPORT_FILE_ARG_NAME, "r", false, "report csv file")
                     .validator(is_csv)
                     .display_order(4),
                 ]))
 
         .subcommand(SubCommand::with_name("report")
                 .about("Generates the report from report file")
-                .arg(get_arg(&REPORT_FILE_ARG_NAME, "r", true, "report file")
+                .arg(get_arg(REPORT_FILE_ARG_NAME, "r", true, "report file")
                 .validator(is_csv)))
 
         .subcommand(SubCommand::with_name("node")
                 .about("Starts bombardier as a node")
-                .arg(get_arg(&HUB_ADDRESS_ARG_NAME, "h", true, "hub address <ip>:<port>")))
+                .arg(get_arg(HUB_ADDRESS_ARG_NAME, "h", true, "hub address <ip>:<port>")))
 
         .subcommand(SubCommand::with_name("hub")
                 .about("Starts bombardier as a hub server")
                 .args(&[
-                    get_arg(&SERVER_PORT_ARG_NAME, "p", true, "rest server port")
+                    get_arg(SERVER_PORT_ARG_NAME, "p", true, "rest server port")
                     .validator(is_int),
 
-                    get_arg(&SOCKET_PORT_ARG_NAME, "s", true, "socket server port")
+                    get_arg(SOCKET_PORT_ARG_NAME, "s", true, "socket server port")
                     .validator(is_int)
                 ])
         )
