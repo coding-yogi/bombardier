@@ -70,7 +70,6 @@ async fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn Er
 
 async fn get_async_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Error + Send + Sync>> {
     let mut client_builder = Client::builder()
-        .user_agent("bombardier")
         .use_native_tls();
 
     if config.handle_cookies {
