@@ -28,13 +28,13 @@ use crate::{
 };
 
 enum ContentType {
-    YML
+    Yml
 }
 
 impl ContentType {
     pub fn as_str(&self) -> &'static str {
         match self {
-            ContentType::YML => "text/yaml"
+            ContentType::Yml => "text/yaml"
         }
     }
 }
@@ -122,20 +122,20 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
             match p.name() {
                 "config" => {
                     config_present = true;
-                    match validate_content_type(&p, ContentType::YML) {
+                    match validate_content_type(&p, ContentType::Yml) {
                         Some(error) =>  errors.push(error),
                         None => config_content = get_stream(p).await
                     };
                 },
                 "scenarios" => {
                     scenario_present = true;
-                    match validate_content_type(&p, ContentType::YML) {
+                    match validate_content_type(&p, ContentType::Yml) {
                         Some(error) =>  errors.push(error),
                         None => scenarios_content = get_stream(p).await
                     };
                 },
                 "environment" => {
-                    match validate_content_type(&p, ContentType::YML) {
+                    match validate_content_type(&p, ContentType::Yml) {
                         Some(error) =>  errors.push(error),
                         None => environments_content = get_stream(p).await
                     };

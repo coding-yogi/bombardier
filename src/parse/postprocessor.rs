@@ -51,7 +51,7 @@ impl Extractor for XpathExtractor {
         let context = Context::new(&doc).unwrap();
         let nodes = context.evaluate(xpath).unwrap().get_nodes_as_vec();
     
-        if nodes.len() == 0 {
+        if nodes.is_empty() {
             return Err(format!("No results found for xpath {}", xpath).into());
         } else if nodes.len() > 1 {
             warn!("Xpath {} matches multiple nodes. only first node would be considered", xpath)
@@ -69,7 +69,7 @@ struct RegExExtractor;
 
 impl Extractor for RegExExtractor {
     fn extract(&self, pattern: &str, body: &str) -> Result<String, Box<dyn Error + 'static>> {
-        let re = Regex::new(&format!(r"{}", pattern))?;
+        let re = Regex::new(pattern)?;
         let regex_match = re.find(body).ok_or(format!("No match found for regex {}", re.as_str()))?.as_str();
         Ok(String::from(regex_match))
     }
@@ -82,7 +82,7 @@ impl Extractor for RegExExtractor {
 fn extract<T: Extractor>(extractor: T, body: &str, map: &Mapping, env_map: &mut HashMap<String, String>)
  -> Result<(), Box<dyn Error + 'static>> {
     for (k, v) in map {
-        let keyname = k.as_str().ok_or(format!("Key for extractor must be a string"))?;
+        let keyname = k.as_str().ok_or("Key for extractor must be a string")?;
         let pattern = v.as_str().ok_or(format!("Value for extractor {} must be a string", keyname))?;
         debug!("Fetching value for {}: {}", extractor.name(), pattern);
         let extracted_value = extractor.extract(pattern,body)?;
@@ -129,12 +129,12 @@ pub async fn process(response: Response, extractors: &[model::Extractor], env_ma
 }
 
 fn is_json_response(response: &Response) -> bool {
-    let content_type = get_response_content_type(&response.headers());
+    let content_type = get_response_content_type(response.headers());
     content_type.contains("json")
 }
 
 fn is_xml_response(response: &Response) -> bool {
-    let content_type = get_response_content_type(&response.headers());
+    let content_type = get_response_content_type(response.headers());
     content_type.contains("xml") || content_type.contains("html")
 }
 
@@ -148,7 +148,7 @@ async fn get_response_as_string(response: Response) -> String {
     }
 }
 
-fn get_response_content_type<'a>(headers: &'a HeaderMap) -> &'a str {
+fn get_response_content_type(headers: &HeaderMap) -> &str {
     match headers.get(CONTENT_TYPE) {
         Some(v) => {
             match v.to_str() {

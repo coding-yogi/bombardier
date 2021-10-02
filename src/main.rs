@@ -1,5 +1,6 @@
 mod bombardier;
 mod cmd;
+mod converter;
 mod data;
 mod logger;
 mod model;
@@ -29,7 +30,7 @@ async fn main()  {
     let matches = cmd::create_cmd_app().get_matches();
     let (subcommand, arg_matches) = matches.subcommand();
 
-    if subcommand == "" {
+    if subcommand.is_empty() {
         error!("No subcommand found. Should either be 'bombard', 'report' or 'node'");
         return;
     }
@@ -111,7 +112,7 @@ async fn main()  {
     }
 }
 
-async fn get_config<'a>(args_match: Option<&clap::ArgMatches<'a>>) -> Option<ExecConfig> {
+async fn get_config<'a>(args_match: Option<&clap::ArgMatches<'_>>) -> Option<ExecConfig> {
     let config_file_path = cmd::arg_value_as_str(args_match, cmd::CONFIG_FILE_ARG_NAME);
     info!("Parsing config file {}", config_file_path);
 
@@ -129,10 +130,11 @@ async fn get_config<'a>(args_match: Option<&clap::ArgMatches<'a>>) -> Option<Exe
     }
 }
 
-async fn get_arg_file_content<'a>(args_match: Option<&clap::ArgMatches<'a>>, arg_name: &str) -> Option<String> {
+async fn get_arg_file_content(args_match: Option<&clap::ArgMatches<'_>>, arg_name: &str) -> Option<String> {
     let file_path = cmd::arg_value_as_str(args_match, arg_name);
     let mut content = String::new();
-    if file_path != "" {
+
+    if !file_path.is_empty() {
         info!("Reading {} file", file_path);
         content = match fs::read_to_string(&file_path).await {
             Ok(content) => content,

@@ -29,7 +29,7 @@ pub fn parse_config(content: String) -> Result<cmd::ExecConfig, Box<dyn std::err
 
 pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<model::Request>, Box<dyn Error>> {
     info!("Preparing bombardier requests");
-    let scenarios_yml = preprocessor::param_substitution(content, &env_map);
+    let scenarios_yml = preprocessor::param_substitution(content, env_map);
 
     let root: model::Root = match serde_yaml::from_str(&scenarios_yml) {
         Ok(r) => r,
@@ -42,7 +42,9 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
     let mut requests = Vec::<model::Request>::new();
   
     for scenario in root.scenarios {
-        for request in scenario.requests {
+        for mut request in scenario.requests {
+            request.id = uuid::Uuid::new_v4();
+            request.requires_preprocessing = param_substitution_required(&request);
             requests.push(request);
         }
     } 
@@ -50,10 +52,16 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
     Ok(requests)
 }
 
+
+fn param_substitution_required(request: &model::Request) -> bool {
+    let request_string = serde_yaml::to_string(request).unwrap();
+    request_string.contains("{{")
+}
+
 pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
     let mut env_map: HashMap<String, String> = HashMap::with_capacity(30);
 
-    if content == "" {
+    if content.is_empty() {
         warn!("No environments data is being used for execution");
         return Ok(env_map);
     }

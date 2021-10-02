@@ -5,9 +5,10 @@ use std::collections::HashMap;
 use crate::model::Request;
 
 pub fn process(request: Request, env_map: &HashMap<String, String>) -> Request {
-    if env_map.len() > 0 {
+    if !env_map.is_empty() {
         let mut s_request = serde_yaml::to_string(&request).expect("Request cannot be serialized");
-        s_request = param_substitution(s_request, &env_map);
+        s_request = param_substitution(s_request, env_map);
+
         return match serde_yaml::from_str::<Request>(&s_request) {
             Ok(r) => r,
             Err(err) => {
@@ -26,7 +27,7 @@ pub fn param_substitution(mut content: String, params: &HashMap<String, String>)
         for (param_name, param_value) in params {
             let from = &format!("{{{{{}}}}}", param_name);
             let to = &param_value.replace(r#"""#, r#"\""#);
-            content = content.replace(from, &to);
+            content = content.replace(from, to);
         }
     }
     

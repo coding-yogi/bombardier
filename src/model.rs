@@ -16,15 +16,16 @@ pub struct Environment {
 pub struct Scenario {
     pub name: String,
 
-    //#[serde(rename = "threadCount")]
-    //pub thread_count: i32,
-
     #[serde(default)]
     pub requests: Vec<Request>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Request {
+    #[serde(skip_deserializing)]
+    #[serde(skip_serializing)]
+    pub id: uuid::Uuid,
+
     pub name: String,
 
     pub url: url::Url,
@@ -38,7 +39,10 @@ pub struct Request {
     pub body: Body,
 
     #[serde(default)]
-    pub extractors: Vec<Extractor>
+    pub extractors: Vec<Extractor>,
+
+    #[serde(default)]
+    pub requires_preprocessing: bool
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]

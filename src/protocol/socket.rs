@@ -22,7 +22,7 @@ impl <T> WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
     }
 
     pub async fn write(&mut self, message: String) {
-        match self.sink.send(Message::Text(message).into()).await {
+        match self.sink.send(Message::Text(message)).await {
             Ok(_) => (),
             Err(err) => error!("Error occured while writing to socket: {}", err)
         }

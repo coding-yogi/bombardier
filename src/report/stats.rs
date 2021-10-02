@@ -1,6 +1,6 @@
 use chrono::Utc;
 use crossbeam::channel;
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 
 use serde::{Serialize, Deserialize};
 use tokio::{net::TcpStream, sync::Mutex, task};
@@ -40,7 +40,7 @@ impl Stats {
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}, {}, {}, {:width$}\n", self.timestamp, self.status, self.latency, self.name, width = 35)
+        writeln!(f, "{}, {}, {}, {:width$}", self.timestamp, self.status, self.latency, self.name, width = 35)
     }
 }
 
@@ -64,7 +64,7 @@ impl StatsConsumer {
         //Initialize CSV Writer is execution is not distributed
         let mut opt_csv_writer = None;
         if !is_distributed {
-            opt_csv_writer = match csv::CSVWriter::new(&cmd::DEFAULT_REPORT_FILE).await {
+            opt_csv_writer = match csv::CSVWriter::new(cmd::DEFAULT_REPORT_FILE).await {
                 Ok(w) => Some(w),
                 Err(err) => return Err(err.to_string())
             };
@@ -175,7 +175,7 @@ fn get_db_writer(db_config: &Database) -> Option<Box<dyn storage::DBWriter + Sen
     match db_config.db_type.to_lowercase().as_str() {
         "influxdb" => {
             info!("Initiating influx DB");
-            match influxdb::InfluxDBWriter::new(&db_config) {
+            match influxdb::InfluxDBWriter::new(db_config) {
                 Some(writer) =>  {
                     db_writer = Box::new(writer) as Box<dyn DBWriter + Send>;
                 },

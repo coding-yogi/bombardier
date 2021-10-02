@@ -16,15 +16,14 @@ impl CSVWriter {
         };
 
         //write header row
-        csv_writer.report_file.write_all(&format!("timestamp, status, latency, name\n").as_bytes()).await?;
+        csv_writer.report_file.write_all("timestamp, status, latency, name\n".as_bytes()).await?;
         Ok(csv_writer)
     }
 
     pub async fn write<T: Display>(&mut self, stats: &[T]) {
         for stat in stats {
-            match self.report_file.write_all(stat.to_string().as_bytes()).await {
-                Err(err) => warn!("Unable to write stat {} to file due to error {}", stat, err),
-                Ok(_) => (),
+            if let Err(err) =  self.report_file.write_all(stat.to_string().as_bytes()).await {
+                warn!("Unable to write stat {} to file due to error {}", stat, err)
             }
         }
     }

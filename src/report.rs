@@ -28,7 +28,7 @@ pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>
         let num = name_filter.len();
 
         let mut times: Vec<u128> = name_filter.par_iter().map(|s| s.latency).collect();
-        times.sort();
+        times.sort_unstable();
 
         let (min, max) = (times[0], times[num-1]);
         let (pc_90, pc_95, pc_99) = get_all_percentiles(&times);
@@ -64,7 +64,7 @@ async fn get_stats(report_file: std::fs::File) -> Result<(HashSet<String>, Vec<S
     Ok((names, stats))
 }
 
-fn get_percentile(sorted_vector: &Vec<u128>, p: usize) -> u128 {
+fn get_percentile(sorted_vector: &[u128], p: usize) -> u128 {
     let len = sorted_vector.len();
     match p*len/100 {
         0 => sorted_vector[0],
@@ -72,8 +72,8 @@ fn get_percentile(sorted_vector: &Vec<u128>, p: usize) -> u128 {
     }
 }
 
-fn get_all_percentiles(times: &Vec<u128>) -> (u128, u128, u128) {
-    (get_percentile(&times, 90), get_percentile(&times, 95), get_percentile(&times, 99))
+fn get_all_percentiles(times: &[u128]) -> (u128, u128, u128) {
+    (get_percentile(times, 90), get_percentile(times, 95), get_percentile(times, 99))
 }
 
 fn print_summary_table(et: i64, total_hits: usize, total_errors: f32) {
@@ -89,7 +89,7 @@ fn print_summary_table(et: i64, total_hits: usize, total_errors: f32) {
     sum_table.printstd();
 }
 
-fn get_execution_time(stats: &Vec<Stats>) -> i64 {
+fn get_execution_time(stats: &[Stats]) -> i64 {
     let starttime = DateTime::parse_from_rfc3339(&stats[0].timestamp).unwrap() - Duration::milliseconds(stats[0].latency as i64);
     let endtime = DateTime::parse_from_rfc3339(&stats[stats.len()-1].timestamp).unwrap();
     endtime.signed_duration_since(starttime).num_seconds()

@@ -1,6 +1,7 @@
 use chrono::{Utc, DateTime};
 use crossbeam::channel;
-use log::{error, warn, trace};
+use log::{debug, error, warn};
+use reqwest::Request as Reqwest;
 use serde::{Serialize, Deserialize};
 use tokio::{
     sync::Mutex,
@@ -9,6 +10,7 @@ use tokio::{
 };
 
 use std::{
+    error::Error,
     fs::File,
     collections::HashMap,
     sync::Arc
@@ -16,6 +18,7 @@ use std::{
 
 use crate::{
     cmd, 
+    converter, 
     data::DataProvider, 
     model::*, 
     parse::{
@@ -23,7 +26,7 @@ use crate::{
         preprocessor,
         postprocessor
     }, 
-    protocol::http, 
+    protocol::http::{self, HttpClient}, 
     report::stats
 };
 
@@ -36,7 +39,7 @@ pub struct  Bombardier {
 
 impl Bombardier {
     pub fn new(config: cmd::ExecConfig, env: String, scenarios: String) 
-     -> Result<Bombardier, Box<dyn std::error::Error>>  {
+     -> Result<Bombardier, Box<dyn Error>>  {
         //Prepare environment map
         let env_map = match parser::parse_env_map(&env) {
             Err(err) => return Err(err),
@@ -60,7 +63,7 @@ impl Bombardier {
 
 impl Bombardier {
     pub async fn bombard(&self, stats_sender: channel::Sender<Vec<stats::Stats>>)
-    -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    -> Result<(), Box<dyn Error + Send + Sync>> {
         //Setting execution config
         let no_of_iterations = self.config.iterations;
         let thread_delay = self.config.rampup_time * 1000 / self.config.thread_count;
@@ -68,8 +71,8 @@ impl Bombardier {
         let continue_on_error = self.config.continue_on_error;
     
         //Set up client and requests
-        let client = http::get_async_client(&self.config).await?;
-        let requests_arc = Arc::new(self.requests.to_owned());
+        let client = Arc::new(http::HttpClient::new(&self.config).await?);
+        let requests = Arc::new(self.requests.to_owned());
        
         //set up data
         let data_file = get_data_file(&self.config.data_file)?;
@@ -82,6 +85,7 @@ impl Bombardier {
             data_provider_arc = Arc::new(Mutex::new(None));
         }
 
+        //Initiate Stats sender
         let stats_sender_arc = Arc::new(stats_sender.clone());
         
         let mut handles = vec![];
@@ -90,7 +94,8 @@ impl Bombardier {
         let execution_time = self.config.execution_time;
 
         for thread_cnt in 0..self.config.thread_count {
-            let requests = requests_arc.clone();
+            debug!("Starting thread: {}", thread_cnt);
+            let requests = requests.clone();
             let client = client.clone();
             let mut env_map = self.env_map.clone(); //every thread will mutate this map as per runtime values
             let data_provider = data_provider_arc.clone();
@@ -120,10 +125,23 @@ impl Bombardier {
                     
                     //looping thru requests
                     for request in requests.iter() {
-                        let processed_request = preprocessor::process(request.to_owned(), &env_map); //transform request
-                        trace!("Executing {}-{} : {}", thread_cnt, thread_iteration, serde_json::to_string_pretty(&processed_request).unwrap());
+                        let reqwest = match process_request(client.as_ref(), request, &env_map).await {
+                            Ok(reqwest) => Some(reqwest),
+                            Err(err) => {
+                                error!("Error occured while processing request {} : {}", &request.name, err);
+                                None
+                            }
+                        };
 
-                        match http::execute(&client, &processed_request).await {
+                        if reqwest.is_none() {
+                            if continue_on_error {
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        match client.execute(reqwest.unwrap()).await { //can safely unwrap as none is checked
                             Ok((response, latency)) => {
                                 let new_stats = stats::Stats::new(&request.name, response.status().as_u16(), latency);
                                 vec_stats.push(new_stats); //Add stats to vector
@@ -164,8 +182,18 @@ impl Bombardier {
     }
 }
 
+async fn process_request(http_client: &HttpClient, request: &Request, env_map: &HashMap<String, String>) 
+-> Result<Reqwest, Box<dyn Error + Send + Sync>> {
+    if request.requires_preprocessing {
+        debug!("Preprocessing request"); 
+        let processed_request = preprocessor::process(request.to_owned(), env_map); 
+        return converter::convert_request(http_client, &processed_request).await
+    } else {
+        return converter::convert_request(http_client, request).await 
+    }
+}
 
-fn get_data_file(file_path: &str) -> Result<Option<File>, Box<dyn std::error::Error + Send + Sync>> {
+fn get_data_file(file_path: &str) -> Result<Option<File>, Box<dyn Error + Send + Sync>> {
     if file_path.trim() == "" {
         return Ok(None)
     }
