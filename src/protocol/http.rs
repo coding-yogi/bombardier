@@ -43,7 +43,7 @@ async fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Sen
     
     if path.to_lowercase().ends_with(".der") {
         return Ok(Certificate::from_der(&cert)?)
-    } else if path.to_lowercase().ends_with("cmd::PEM_EXT") {
+    } else if path.to_lowercase().ends_with(".pem") {
         return Ok(Certificate::from_pem(&cert)?)
     }
 
