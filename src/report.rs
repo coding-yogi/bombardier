@@ -4,7 +4,7 @@ pub mod stats;
 use chrono::{DateTime, Duration};
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
-use std::fs::File;
+use log::error;
 
 use std::collections::HashSet;
 
@@ -12,8 +12,8 @@ use crate::report::stats::Stats;
 use crate::data;
 
 pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::open(report_file)?;
-    let (names, stats) = get_stats(file).await?;
+
+    let (names, stats) = get_stats(report_file).await?;
 
     let mut table = Table::new();
     table.add_row(row![FY => "Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "90%", "95%", "99%", "Errors", "Error Rate"]);
@@ -52,8 +52,15 @@ pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
-async fn get_stats(report_file: std::fs::File) -> Result<(HashSet<String>, Vec<Stats>), Box<dyn std::error::Error>> {
-    let mut data_provider = data::DataProvider::new(report_file).await;
+async fn get_stats(report_file: &str) -> Result<(HashSet<String>, Vec<Stats>), Box<dyn std::error::Error>> {
+    let mut data_provider = match data::DataProvider::new(report_file).await {
+        Some(data_provider) => data_provider,
+        None => {
+            error!("Unable to initialize data provider for {}", report_file);
+            return Err("Unable to initialize data provider".into())
+        }
+    };
+
     let mut stats: Vec<Stats> = data_provider.get_records_as().await.unwrap();
 
     let names = stats.iter().map(|s| {

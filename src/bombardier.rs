@@ -11,7 +11,6 @@ use tokio::{
 
 use std::{
     error::Error,
-    fs::File,
     collections::HashMap,
     sync::Arc
 };
@@ -74,15 +73,9 @@ impl Bombardier {
         let requests = Arc::new(self.requests.to_owned());
        
         //set up data
-        let data_file = get_data_file(&self.config.data_file)?;
-        let is_data_provided = data_file.is_some();
-
-        let data_provider_arc;
-        if let Some(file) = data_file {
-            data_provider_arc = Arc::new(Mutex::new(Some(DataProvider::new(file).await)));
-        } else {
-            data_provider_arc = Arc::new(Mutex::new(None));
-        }
+        let data_provider = DataProvider::new(&self.config.data_file).await;
+        let is_data_provided = data_provider.is_some();
+        let data_provider_arc = Arc::new(Mutex::new(data_provider));
 
         //Initiate Stats sender
         let stats_sender_arc = Arc::new(stats_sender.clone());
@@ -145,10 +138,13 @@ impl Bombardier {
                                 let new_stats = stats::Stats::new(&request.name, response.status().as_u16(), latency);
                                 vec_stats.push(new_stats); //Add stats to vector
 
-                                if !continue_on_error && is_failed_request(response.status().as_u16()) { //check status
-                                    warn!("Request {} failed with status {}. Skipping rest of the iteration", &request.name, response.status());
-                                    break;
-                                }
+                                if response.status().as_u16() > 399 { //check status
+                                    info!("Request {} failed with status {}", &request.name, response.status());
+                                    if !continue_on_error { 
+                                        warn!("Skipping rest of the iteration as continueOnError is set to false");
+                                        break;
+                                    }
+                                }  
 
                                 match postprocessor::process(response, &request.extractors, &mut env_map).await { //process response and update env_map
                                     Err(err) => error!("Error occurred while post processing response for request {} : {}", &request.name, err),
@@ -191,23 +187,7 @@ async fn process_request(http_client: &HttpClient, request: &Request, env_map: &
     }
 }
 
-fn get_data_file(file_path: &str) -> Result<Option<File>, Box<dyn Error + Send + Sync>> {
-    if file_path.trim() == "" {
-        return Ok(None)
-    }
-
-    let file = match File::open(file_path) {
-        Ok(file) => file,
-        Err(err) => {
-            error!("Error while reading data file {}", err);
-            return Err(err.into())
-        }
-    };
-
-    Ok(Some(file))
-}
-
-async fn update_env_map_with_data(env_map: &mut HashMap<String, String>, data_provider: Arc<Mutex<Option<DataProvider<File>>>>) {
+async fn update_env_map_with_data(env_map: &mut HashMap<String, String>, data_provider: Arc<Mutex<Option<DataProvider>>>) {
     //get record
     let mut data_provider_mg = data_provider.lock().await; 
         
@@ -221,8 +201,4 @@ async fn update_env_map_with_data(env_map: &mut HashMap<String, String>, data_pr
 
 fn is_execution_time_over(start_time: DateTime<Utc>, duration: &u64) -> bool {
     (Utc::now().timestamp() - start_time.timestamp()) as u64 > *duration
-}
-
-fn is_failed_request(status: u16) -> bool {
-    status > 399
 }

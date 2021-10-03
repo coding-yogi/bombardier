@@ -37,7 +37,7 @@ impl InfluxDBWriter {
             headers.insert(Value::from("authorization"), Value::from(format!("Basic {}", base64::encode(format!("{}:{}",db.user,db.password)))));
         }
 
-        match HttpClient::get_default_sync_client() {
+        match HttpClient::get_default_async_client() {
             Ok(http_client) =>  Some(InfluxDBWriter {
                 client: http_client,
                 request: model::Request {

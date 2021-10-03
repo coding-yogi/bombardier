@@ -1,32 +1,49 @@
 use std::collections::HashMap;
 
-use csv::{
-    Error,
-    Reader, 
-    ReaderBuilder, 
-    Position,
+use csv_async::{
+    AsyncReader, 
+    AsyncReaderBuilder, 
+    Error, 
     StringRecord, 
     Trim
 };
+
+use futures::StreamExt;
 use log::{info, error};
 use serde::de::DeserializeOwned;
+use tokio::{
+    io::AsyncRead,
+    fs::File
+};
 
-use std::io::{Read, Seek};
-
-pub struct DataProvider<R> where R: std::io::Read {
+pub struct DataProvider  {
+    file_path: String,
     headers: StringRecord,
-    reader: Reader<R>
+    reader: AsyncReader<File>
 }
 
-impl<R> DataProvider<R> where R: Read + Seek {
-    pub async fn new(rdr: R) -> Self {
+impl DataProvider {
+    pub async fn new(file_path: &str) -> Option<Self> {
+        if file_path.trim().is_empty() {
+            return None
+        }
+
+        let file = match File::open(file_path).await {
+            Ok(file) => file,
+            Err(err) => {
+                error!("Error while reading data file {}", err);
+                return None
+            }
+        };
+
         let mut data_provider = DataProvider {
+            file_path: file_path.to_string(),
             headers: StringRecord::new(),
-            reader: create_reader(rdr).await
+            reader: create_reader(file).await
         };
 
         data_provider.headers = data_provider.get_headers().await;
-        data_provider
+        Some(data_provider)
     } 
 
     pub async fn get_data(&mut self) -> HashMap<String, String> {
@@ -40,7 +57,7 @@ impl<R> DataProvider<R> where R: Read + Seek {
     }
 
     async fn get_headers(&mut self) -> StringRecord {
-        match self.reader.headers() {
+        match self.reader.headers().await {
             Ok(record) => record.to_owned(),
             Err(err) => {
                 error!("Error occurred while reading header row from csv file: {}", err.to_string());
@@ -51,12 +68,12 @@ impl<R> DataProvider<R> where R: Read + Seek {
 
     async fn get_record(&mut self) -> Option<StringRecord> {
         let mut record = StringRecord::new();
-        match self.reader.read_record(&mut record) {
+        match self.reader.read_record(&mut record).await {
             Ok(record_read) => {
                 if !record_read {
                     info!("End of file reached for data file, reseting position");
-                    let _ = self.reader.seek(Position::new());
-                    let _ = self.reader.read_record(&mut record); //Ignoring header row
+                    let file = File::open(&self.file_path).await.unwrap();
+                    self.reader = create_reader(file).await;
                     let _ = self.reader.read_record(&mut record);
                 } 
                     
@@ -71,25 +88,24 @@ impl<R> DataProvider<R> where R: Read + Seek {
 
     pub async fn get_records_as<T>(&mut self) -> Result<Vec<T>, Error> 
     where T: DeserializeOwned {       
-        let _ = self.reader.seek(Position::new());
-        let _ = self.reader.read_record(&mut StringRecord::new()); //Ignoring header row
+        let file = File::open(&self.file_path).await.unwrap();
+        self.reader = create_reader(file).await;
         let record_stream = self.reader.records();
-
         let headers = self.headers.to_owned();
 
         let vec = record_stream.map(|r| {
             let sr = r.unwrap();
             let s: T = sr.deserialize(Some(&headers)).unwrap();
             s
-        }).collect::<Vec<T>>();
+        }).collect::<Vec<T>>().await;
 
         Ok(vec)
     }
 }
 
-async fn create_reader<R: std::io::Read>(rdr: R) -> Reader<R> {
-    ReaderBuilder::new()
+async fn create_reader<R: AsyncRead + Unpin + Send + Sync>(rdr: R) -> AsyncReader<R> {
+    AsyncReaderBuilder::new()
         .has_headers(true)
         .trim(Trim::All)
-        .from_reader(rdr)
+        .create_reader(rdr)
 }

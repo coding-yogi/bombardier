@@ -109,9 +109,8 @@ impl HttpClient {
 }
 
 impl HttpClient {
-    pub fn get_default_sync_client() -> Result<HttpClient, reqwest::Error> {
+    pub fn get_default_async_client() -> Result<HttpClient, reqwest::Error> {
         let client = Client::builder()
-            .user_agent("bombardier")
             .build()?;
 
         Ok(HttpClient {client})

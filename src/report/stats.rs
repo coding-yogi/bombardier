@@ -141,7 +141,6 @@ impl StatsConsumer {
                     }
                     Err(err) => {       
                         if err.to_string().contains("receiving on an empty and disconnected channel") {
-                            info!("receiving on an empty and disconnected channel");
                             if is_distributed {
                                 write_to_socket(websocket.clone(), stats_batch_arc.clone()).await;
                                 send_done_to_websocket(websocket).await;
