@@ -5,10 +5,13 @@ use std::{
     error::Error
 };
 
-use crate::{cmd, model, parse::preprocessor};
+use crate::{
+    model::{Environment, Config, Request, Root}, 
+    parse::preprocessor
+};
 
-pub fn parse_config(content: String) -> Result<cmd::ExecConfig, Box<dyn std::error::Error>> {
-    let config: cmd::ExecConfig = match serde_yaml::from_str(&content) {
+pub fn parse_config(content: String) -> Result<Config, Box<dyn std::error::Error>> {
+    let config: Config = match serde_yaml::from_str(&content) {
         Ok(c) => c,
         Err(err) => {
             error!("Error while parsing config: {}", err.to_string());
@@ -27,11 +30,11 @@ pub fn parse_config(content: String) -> Result<cmd::ExecConfig, Box<dyn std::err
     Ok(config)
 }
 
-pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<model::Request>, Box<dyn Error>> {
+pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<Request>, Box<dyn Error>> {
     info!("Preparing bombardier requests");
     let scenarios_yml = preprocessor::param_substitution(content, env_map);
 
-    let root: model::Root = match serde_yaml::from_str(&scenarios_yml) {
+    let root: Root = match serde_yaml::from_str(&scenarios_yml) {
         Ok(r) => r,
         Err(err) => {
             error!("Parsing bombardier requests failed: {}", err.to_string());
@@ -39,7 +42,7 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
         }
     };
 
-    let mut requests = Vec::<model::Request>::new();
+    let mut requests = Vec::<Request>::new();
   
     for scenario in root.scenarios {
         for mut request in scenario.requests {
@@ -52,8 +55,7 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
     Ok(requests)
 }
 
-
-fn param_substitution_required(request: &model::Request) -> bool {
+fn param_substitution_required(request: &Request) -> bool {
     let request_string = serde_yaml::to_string(request).unwrap();
     request_string.contains("{{")
 }
@@ -67,7 +69,7 @@ pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn E
     }
 
     info!("Parsing env map");
-    let env: model::Environment = match serde_yaml::from_str(content) {
+    let env: Environment = match serde_yaml::from_str(content) {
         Ok(e) => e,
         Err(err) => {
             error!("Parsing env content failed: {}", err.to_string());

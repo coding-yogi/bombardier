@@ -1,6 +1,6 @@
 use chrono::{Utc, DateTime};
 use crossbeam::channel;
-use log::{debug, error, warn};
+use log::{info, error, warn};
 use reqwest::Request as Reqwest;
 use serde::{Serialize, Deserialize};
 use tokio::{
@@ -17,7 +17,6 @@ use std::{
 };
 
 use crate::{
-    cmd, 
     converter, 
     data::DataProvider, 
     model::*, 
@@ -32,13 +31,13 @@ use crate::{
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct  Bombardier {
-    pub config: cmd::ExecConfig,
+    pub config: Config,
     pub env_map: HashMap<String, String>,
     pub requests: Vec<Request>,
 }
 
 impl Bombardier {
-    pub fn new(config: cmd::ExecConfig, env: String, scenarios: String) 
+    pub fn new(config: Config, env: String, scenarios: String) 
      -> Result<Bombardier, Box<dyn Error>>  {
         //Prepare environment map
         let env_map = match parser::parse_env_map(&env) {
@@ -94,7 +93,7 @@ impl Bombardier {
         let execution_time = self.config.execution_time;
 
         for thread_cnt in 0..self.config.thread_count {
-            debug!("Starting thread: {}", thread_cnt);
+            info!("Starting thread: {}", thread_cnt);
             let requests = requests.clone();
             let client = client.clone();
             let mut env_map = self.env_map.clone(); //every thread will mutate this map as per runtime values
@@ -185,7 +184,6 @@ impl Bombardier {
 async fn process_request(http_client: &HttpClient, request: &Request, env_map: &HashMap<String, String>) 
 -> Result<Reqwest, Box<dyn Error + Send + Sync>> {
     if request.requires_preprocessing {
-        debug!("Preprocessing request"); 
         let processed_request = preprocessor::process(request.to_owned(), env_map); 
         return converter::convert_request(http_client, &processed_request).await
     } else {

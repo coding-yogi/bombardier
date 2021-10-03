@@ -13,14 +13,14 @@ use std::{
     time,
 };
 
-use crate::{cmd};
+use crate::{model};
 
 pub struct HttpClient {
     client: Client,
 }
 
 impl HttpClient {
-    pub async fn new(config: &cmd::ExecConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub async fn new(config: &model::Config) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let client = get_async_client(config).await?;
 
         Ok(HttpClient {client})
@@ -41,9 +41,9 @@ async fn get_certificate(path: &str)  -> Result<Certificate, Box<dyn Error + Sen
         }
     };
     
-    if path.to_lowercase().ends_with(cmd::DER_EXT) {
+    if path.to_lowercase().ends_with(".der") {
         return Ok(Certificate::from_der(&cert)?)
-    } else if path.to_lowercase().ends_with(cmd::PEM_EXT) {
+    } else if path.to_lowercase().ends_with(".pem") {
         return Ok(Certificate::from_pem(&cert)?)
     }
 
@@ -60,17 +60,11 @@ async fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn Er
         }
     };
 
-
-    if path.to_lowercase().ends_with(cmd::P12_EXT) || path.to_lowercase().ends_with(cmd::PFX_EXT) {
-        return Ok(Identity::from_pkcs12_der(&ks, password)?)
-    }
-
-    Err("Keystore should be in .p12 or .pfx format".into())
+    Ok(Identity::from_pkcs12_der(&ks, password)?)
 }
 
-async fn get_async_client(config: &cmd::ExecConfig)  -> Result<Client, Box<dyn Error + Send + Sync>> {
+async fn get_async_client(config: &model::Config)  -> Result<Client, Box<dyn Error + Send + Sync>> {
     let mut client_builder = Client::builder()
-        .user_agent("bombardier")
         .use_native_tls();
 
     if config.handle_cookies {
