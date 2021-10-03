@@ -24,7 +24,8 @@ use std::{
 
 use crate::{
     bombardier::Bombardier, 
-    parser, server::servers
+    parse::parser, 
+    server::servers
 };
 
 enum ContentType {

@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use crate::{
     bombardier::Bombardier,
     protocol::socket::{self, WebSocketSink, WebSocketStream}, 
-    stats::StatsConsumer
+    report::stats::StatsConsumer
 };
 
 pub async fn start(hub_address: String) -> Result<(), Box<dyn std::error::Error + 'static>> {

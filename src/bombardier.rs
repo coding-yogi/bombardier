@@ -17,7 +17,6 @@ use std::{
 };
 
 use crate::{
-    cmd, 
     converter, 
     data::DataProvider, 
     model::*, 
@@ -32,13 +31,13 @@ use crate::{
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct  Bombardier {
-    pub config: cmd::ExecConfig,
+    pub config: Config,
     pub env_map: HashMap<String, String>,
     pub requests: Vec<Request>,
 }
 
 impl Bombardier {
-    pub fn new(config: cmd::ExecConfig, env: String, scenarios: String) 
+    pub fn new(config: Config, env: String, scenarios: String) 
      -> Result<Bombardier, Box<dyn Error>>  {
         //Prepare environment map
         let env_map = match parser::parse_env_map(&env) {

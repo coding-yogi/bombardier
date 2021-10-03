@@ -1,5 +1,123 @@
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Deserializer, de::Error};
 use serde_yaml::Mapping;
+
+//Config is the model for execution configuration
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Config {
+    #[serde(deserialize_with = "check_non_zero")]
+    #[serde(default = "default_to_one")]
+    #[serde(rename = "threadCount")]
+    pub thread_count: u64,
+
+    #[serde(default)]
+    pub iterations: u64,
+
+    #[serde(default)]
+    #[serde(rename = "executionTime")]
+    pub execution_time: u64,
+
+    #[serde(default = "default_to_one")]
+    #[serde(rename = "thinkTime")]
+    pub think_time: u64,
+
+    #[serde(deserialize_with = "check_non_zero")]
+    #[serde(rename = "rampUpTime")]
+    pub rampup_time: u64,
+    
+    #[serde(default)]
+    #[serde(rename = "handleCookies")]
+    pub handle_cookies: bool,
+
+    #[serde(default)]
+    #[serde(rename = "continueOnError")]
+    pub continue_on_error: bool,
+
+    #[serde(default)]
+    pub database: Database,
+
+    #[serde(default)]
+    pub ssl: Ssl,
+
+    #[serde(skip_deserializing)]
+    pub distributed: bool,
+
+    #[serde(skip_deserializing)]
+    pub data_file: String
+}
+
+fn check_non_zero <'de, D>(deserializer: D) -> Result<u64, D::Error> 
+where D: Deserializer<'de> {    
+    let val = u64::deserialize(deserializer)?;
+    if val == 0 {
+        return Err(Error::custom("Value cannot be zero"))
+    }
+
+    Ok(val)
+}
+
+fn default_to_one() -> u64 {
+    1
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct Database {
+    #[serde(rename = "type")]
+    #[serde(default)]
+    pub db_type: String,
+
+    #[serde(default)]
+    pub url: String,
+
+    #[serde(default)]
+    pub user: String,
+
+    #[serde(default)]
+    pub password: String,
+
+    #[serde(default)]
+    pub name: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct Ssl {
+    #[serde(default)]
+    #[serde(rename = "ignoreSSL")]
+    pub ignore_ssl: bool,
+
+    #[serde(default)]
+    #[serde(rename = "acceptInvalidHostnames")]
+    pub accept_invalid_hostnames: bool,
+
+    #[serde(default, deserialize_with = "check_der_or_pem")]
+    pub certificate: String,
+
+    #[serde(default, deserialize_with = "check_p12_or_pfx")]
+    pub keystore: String,
+
+    #[serde(default)]
+    #[serde(rename = "keystorePassword")]
+    pub keystore_password: String,
+}
+
+fn check_der_or_pem <'de, D>(deserializer: D) -> Result<String, D::Error> 
+where D: Deserializer<'de> {   
+    let val = String::deserialize(deserializer)?;
+    if !(val.is_empty() || val.ends_with(".der") || val.ends_with(".pem")){
+        return Err(Error::custom("File should be a .pem or .der file"))
+    }
+
+    Ok(val)
+}
+
+fn check_p12_or_pfx <'de, D>(deserializer: D) -> Result<String, D::Error> 
+where D: Deserializer<'de> {   
+    let val = String::deserialize(deserializer)?;
+    if !(val.is_empty() || val.ends_with(".p12") || val.ends_with(".pfx")){
+        return Err(Error::custom("File should be a .p12 or .pfx file"))
+    }
+
+    Ok(val)
+}
 
 #[derive(Deserialize, Debug)]
 pub struct Root {

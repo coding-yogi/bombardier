@@ -13,9 +13,9 @@ use std::{
 };
 
 use crate::{
-    cmd::{self, Database},
+    model::{Database, Config},
     report::csv,
-    socket, 
+    protocol::socket, 
     storage::{self, DBWriter, influxdb}
 };
 
@@ -47,7 +47,7 @@ impl fmt::Display for Stats {
 pub struct StatsConsumer {}
 
 impl StatsConsumer {
-    pub async fn new(config: &cmd::ExecConfig, websocket: 
+    pub async fn new(config: &Config, websocket: 
         Arc<Mutex<Option<socket::WebSocketSink<MaybeTlsStream<TcpStream>>>>>) 
     -> Result<(channel::Sender<Vec<Stats>>, tokio::task::JoinHandle<()>),String> {
 
@@ -64,7 +64,7 @@ impl StatsConsumer {
         //Initialize CSV Writer is execution is not distributed
         let mut opt_csv_writer = None;
         if !is_distributed {
-            opt_csv_writer = match csv::CSVWriter::new(cmd::DEFAULT_REPORT_FILE).await {
+            opt_csv_writer = match csv::CSVWriter::new("report.csv").await {
                 Ok(w) => Some(w),
                 Err(err) => return Err(err.to_string())
             };

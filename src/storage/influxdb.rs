@@ -3,7 +3,7 @@ use chrono::DateTime;
 use log::error;
 use serde_yaml::{Mapping, Value};
 
-use crate::{cmd, converter, model, protocol::http::HttpClient, report::stats, storage};
+use crate::{converter, model, protocol::http::HttpClient, report::stats, storage};
 
 pub struct InfluxDBWriter {
     pub client: HttpClient,
@@ -11,7 +11,7 @@ pub struct InfluxDBWriter {
 }
 
 impl InfluxDBWriter {
-    pub fn new(db: &cmd::Database) -> Option<InfluxDBWriter> {
+    pub fn new(db: &model::Database) -> Option<InfluxDBWriter> {
         //check if url is set
         if db.url.is_empty() {
             error!("InfluxDB url or host is not set, not initializing the InfluxDBWriter");
