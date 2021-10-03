@@ -24,7 +24,6 @@ use crate::{
 };
 
 pub async fn process_subcommand(app: App<'_>) {
-
     let subcommand = app.subcommand();
     if subcommand.is_empty() {
         error!("No subcommand found. Should either be 'bombard', 'report', 'hub' or 'node'");
@@ -68,17 +67,19 @@ async fn bombard(app: App<'_>) {
     info!("Prepare bombardier");
     let bombardier = Bombardier::new(config, env_content, scenarios_content).unwrap();
     
-    let (stats_sender,  stats_receiver_handle) = 
+    let (stats_consumer, sender) = 
     match stats::StatsConsumer::new(&bombardier.config, Arc::new(Mutex::new(None))).await {
-        Ok((s,r)) => (s,r),
+        Ok(consumer) => consumer,
         Err(err) => {
             error!("Error while initializing stats consumer {}", err);
             return
         }
     };
 
+    let stats_receiver_handle = stats_consumer.consume().await;
+
     info!("Bombarding !!!");
-    match bombardier.bombard(stats_sender).await {
+    match bombardier.bombard(sender).await {
         Err(err) => error!("Bombarding failed : {}", err),
         Ok(()) => info!("Bombarding Complete. Run report command to get details")
     }   

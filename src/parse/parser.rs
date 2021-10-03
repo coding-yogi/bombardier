@@ -55,11 +55,6 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
     Ok(requests)
 }
 
-fn param_substitution_required(request: &Request) -> bool {
-    let request_string = serde_yaml::to_string(request).unwrap();
-    request_string.contains("{{")
-}
-
 pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
     let mut env_map: HashMap<String, String> = HashMap::with_capacity(30);
 
@@ -84,4 +79,9 @@ pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn E
     }
 
     Ok(env_map)
+}
+
+fn param_substitution_required(request: &Request) -> bool {
+    let request_string = serde_yaml::to_string(request).unwrap();
+    request_string.contains("{{")
 }
