@@ -117,6 +117,7 @@ dependencies = [
  "flexi_logger",
  "futures",
  "gjson",
+ "lazy_static",
  "libxml",
  "log",
  "native-tls",

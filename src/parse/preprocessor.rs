@@ -1,4 +1,6 @@
-use log::{error};
+use log::{error, info};
+use lazy_static::lazy_static;
+use regex::Regex;
 use rustc_hash::FxHashMap as HashMap;
 
 use std::borrow::Cow;
@@ -20,19 +22,23 @@ pub fn process(request: &Request, env_map: &HashMap<String, String>) -> Request 
     request.to_owned()
 }
 
-pub fn param_substitution<'a>(content: &'a str, params: &HashMap<String, String>) -> Cow<'a,str> {
-    if content.contains("{{") { //Avoid unnecessary looping, might be tricked by json but would avoid most
-        return params.iter()
-            .fold(Cow::from(content), |mut s, (f,t)| {
-                let from = &["{{" , f , "}}"].join("");
-                if content.contains(from) {
-                    let to = &t.replace(r#"""#, r#"\""#);
-                    s = s.replace(from,to).into();
-                 }
+pub fn param_substitution(content: &str, params: &HashMap<String, String>) -> String {
+   let mut new_value = String::from(content);
 
-                 s
-            })
-    } 
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"\{\{(\w+)\}\}").unwrap();
+    }
 
-    content.into()
+    if content.contains("{{") {
+        for cap in RE.captures_iter(content) {
+            let map_value = params.get(&cap[1]);
+            if map_value.is_some() {
+                new_value = new_value.replace(&cap[0], &map_value.unwrap());
+            } else {
+                error!("Param {} not found in env map", &cap[1]);
+            }
+        }
+    }
+
+    new_value
 }

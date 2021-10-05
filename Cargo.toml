@@ -18,6 +18,7 @@ csv-async = { version = "1.2.1", features = ["tokio"] }
 flexi_logger = { version = "0.18.0", features = ["colors"] }
 futures = "0.3.16"
 gjson = "0.8.0"
+lazy_static = "1.4.0"
 libxml = "0.3.0"
 log = "0.4.14"
 native-tls = "0.2.7"

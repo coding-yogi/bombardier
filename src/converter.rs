@@ -21,12 +21,13 @@ use std::{
 use crate::model::{Request, Body};
 use crate::protocol::http::HttpClient;
 
+#[inline(never)]
 pub async fn convert_request(http_client: &HttpClient, request: &Request) -> Result<Reqwest, Box<dyn StdError + Send + Sync>> {
     //Method
     let method = Method::from_str(&request.method)?;
 
     //Headers
-    let headers = match get_header_map_from_request(request) {
+    let headers = match get_header_map_from_request(request).await {
         Ok(headers) => headers,
         Err(err) => return Err(err)
     };
@@ -50,7 +51,7 @@ pub async fn convert_request(http_client: &HttpClient, request: &Request) -> Res
     Ok(builder.build()?)
 }
 
-fn get_header_map_from_request(request: &Request) 
+async fn get_header_map_from_request(request: &Request) 
 -> Result<HeaderMap, Box<dyn std::error::Error + Send + Sync>> {
     let mut headers = HeaderMap::new();
     for header in &request.headers {
