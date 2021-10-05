@@ -1,9 +1,7 @@
-use log::{error, info};
+use log::{error, warn};
 use lazy_static::lazy_static;
 use regex::Regex;
 use rustc_hash::FxHashMap as HashMap;
-
-use std::borrow::Cow;
 
 use crate::model::Request;
 
@@ -35,7 +33,7 @@ pub fn param_substitution(content: &str, params: &HashMap<String, String>) -> St
             if map_value.is_some() {
                 new_value = new_value.replace(&cap[0], &map_value.unwrap());
             } else {
-                error!("Param {} not found in env map", &cap[1]);
+                warn!("Param {} not found in env map", &cap[1]);
             }
         }
     }

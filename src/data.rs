@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use csv_async::{
     AsyncReader, 
     AsyncReaderBuilder, 
@@ -11,6 +9,7 @@ use csv_async::{
 use futures::StreamExt;
 use log::{info, error};
 use serde::de::DeserializeOwned;
+use rustc_hash::FxHashMap as HashMap;
 use tokio::{
     io::AsyncRead,
     fs::File
@@ -52,7 +51,7 @@ impl DataProvider {
                 .zip(record.iter())
                 .map(|(k,v)| (k.to_owned(), v.to_owned()))
                 .collect::<HashMap<String, String>>(),
-            None => HashMap::with_capacity(0)
+            None => HashMap::default()
         }
     }
 
