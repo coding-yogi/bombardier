@@ -1,35 +1,38 @@
-use log::error;
+use log::{error};
+use rustc_hash::FxHashMap as HashMap;
 
-use std::collections::HashMap;
+use std::borrow::Cow;
 
 use crate::model::Request;
 
-pub fn process(request: Request, env_map: &HashMap<String, String>) -> Request {
+pub fn process(request: &Request, env_map: &HashMap<String, String>) -> Request {
     if !env_map.is_empty() {
-        let mut s_request = serde_yaml::to_string(&request).expect("Request cannot be serialized");
-        s_request = param_substitution(s_request, env_map);
+        let s_request = serde_json::to_string(&request).expect("Request cannot be serialized");
+        let s_request = param_substitution(&s_request, env_map);
 
-        return match serde_yaml::from_str::<Request>(&s_request) {
-            Ok(r) => r,
-            Err(err) => {
-                error!("Unable to deserialize request object after parameter replacement. Returning original request");
-                error!("String: {}, Error: {}", s_request, err);
-                request
-            }
+        if let Ok(new_request) = serde_json::from_str::<Request>(&s_request) {
+            return new_request;
+        } else {
+            error!("Unable to deserialize request object after parameter replacement. Returning original request");
         }
     }
 
-    request
+    request.to_owned()
 }
 
-pub fn param_substitution(mut content: String, params: &HashMap<String, String>) -> String {
+pub fn param_substitution<'a>(content: &'a str, params: &HashMap<String, String>) -> Cow<'a,str> {
     if content.contains("{{") { //Avoid unnecessary looping, might be tricked by json but would avoid most
-        for (param_name, param_value) in params {
-            let from = &format!("{{{{{}}}}}", param_name);
-            let to = &param_value.replace(r#"""#, r#"\""#);
-            content = content.replace(from, to);
-        }
-    }
-    
-    content
+        return params.iter()
+            .fold(Cow::from(content), |mut s, (f,t)| {
+                let from = &["{{" , f , "}}"].join("");
+                if content.contains(from) {
+                    let to = &t.replace(r#"""#, r#"\""#);
+                    s = s.replace(from,to).into();
+                 }
+
+                 s
+            })
+    } 
+
+    content.into()
 }

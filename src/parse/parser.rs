@@ -1,9 +1,10 @@
 use log::{error, info, warn};
 
 use std::{
-    collections::HashMap,
     error::Error
 };
+
+use rustc_hash::FxHashMap as HashMap;
 
 use crate::{
     model::{Environment, Config, Request, Root}, 
@@ -30,9 +31,9 @@ pub fn parse_config(content: String) -> Result<Config, Box<dyn std::error::Error
     Ok(config)
 }
 
-pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Result<Vec<Request>, Box<dyn Error>> {
+pub fn parse_requests(content: &str, env_map: &HashMap<String, String>) -> Result<Vec<Request>, Box<dyn Error>> {
     info!("Preparing bombardier requests");
-    let scenarios_yml = preprocessor::param_substitution(content, env_map);
+    let scenarios_yml = preprocessor::param_substitution(&content, env_map);
 
     let root: Root = match serde_yaml::from_str(&scenarios_yml) {
         Ok(r) => r,
@@ -56,7 +57,7 @@ pub fn parse_requests(content: String, env_map: &HashMap<String, String>) -> Res
 }
 
 pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
-    let mut env_map: HashMap<String, String> = HashMap::with_capacity(30);
+    let mut env_map: HashMap<String, String> = HashMap::default();
 
     if content.is_empty() {
         warn!("No environments data is being used for execution");

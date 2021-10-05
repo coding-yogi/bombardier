@@ -3,6 +3,7 @@ use crossbeam::channel;
 use log::{info, error, warn};
 use reqwest::Request as Reqwest;
 use serde::{Serialize, Deserialize};
+use rustc_hash::FxHashMap as HashMap;
 use tokio::{
     sync::Mutex,
     task::spawn,
@@ -11,7 +12,6 @@ use tokio::{
 
 use std::{
     error::Error,
-    collections::HashMap,
     sync::Arc
 };
 
@@ -45,7 +45,7 @@ impl Bombardier {
         };
         
         //Prepare bombardier requests
-        let requests = match parser::parse_requests(scenarios, &env_map) {
+        let requests = match parser::parse_requests(&scenarios, &env_map) {
             Err(err) => return Err(err),
             Ok(v) => v
         };
@@ -67,28 +67,30 @@ impl Bombardier {
         let thread_delay = self.config.rampup_time * 1000 / self.config.thread_count;
         let think_time = self.config.think_time;
         let continue_on_error = self.config.continue_on_error;
+        let execution_time = self.config.execution_time;
+        let thread_count = self.config.thread_count;
+
+        //set up data
+        let data_provider = DataProvider::new(&self.config.data_file).await;
+        let is_data_provided = data_provider.is_some();
+        let data_provider_arc = Arc::new(Mutex::new(data_provider));
     
         //Set up client and requests
         let client = Arc::new(http::HttpClient::new(&self.config).await?);
         let requests = Arc::new(self.requests.to_owned());
        
-        //set up data
-        let data_provider = DataProvider::new(&self.config.data_file).await;
-        let is_data_provided = data_provider.is_some();
-        let data_provider_arc = Arc::new(Mutex::new(data_provider));
-
         //Initiate Stats sender
         let stats_sender_arc = Arc::new(stats_sender.clone());
         
         let mut handles = vec![];
 
         let start_time = Utc::now();
-        let execution_time = self.config.execution_time;
-
-        for thread_cnt in 0..self.config.thread_count {
+        
+        for thread_cnt in 0..thread_count {
             info!("Starting thread: {}", thread_cnt);
             let requests = requests.clone();
             let client = client.clone();
+
             let mut env_map = self.env_map.clone(); //every thread will mutate this map as per runtime values
             let data_provider = data_provider_arc.clone();
             let stats_sender = stats_sender_arc.clone();
@@ -145,7 +147,7 @@ impl Bombardier {
                                         break;
                                     }
                                 }  
-
+                             
                                 match postprocessor::process(response, &request.extractors, &mut env_map).await { //process response and update env_map
                                     Err(err) => error!("Error occurred while post processing response for request {} : {}", &request.name, err),
                                     Ok(()) => ()
@@ -159,6 +161,7 @@ impl Bombardier {
                                 }
                             }
                         }
+
                         time::sleep(time::Duration::from_millis(think_time)).await; //wait per request delay
                     };
                     
@@ -180,7 +183,7 @@ impl Bombardier {
 async fn process_request(http_client: &HttpClient, request: &Request, env_map: &HashMap<String, String>) 
 -> Result<Reqwest, Box<dyn Error + Send + Sync>> {
     if request.requires_preprocessing {
-        let processed_request = preprocessor::process(request.to_owned(), env_map); 
+        let processed_request = preprocessor::process(request, env_map); 
         return converter::convert_request(http_client, &processed_request).await
     } else {
         return converter::convert_request(http_client, request).await 

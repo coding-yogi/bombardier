@@ -18,15 +18,7 @@ impl InfluxDBWriter {
             return None;
         }
 
-        let db_url= format!("{}/write?db={}&precision=ms", db.url, db.name);
-        
-        let url = match url::Url::parse(&db_url) {
-            Ok(url) => url,
-            Err(err) => {
-                error!("Error occurred while parsing influx DB url {}", err);
-                return None;
-            }
-        };
+        let url= format!("{}/write?db={}&precision=ms", db.url, db.name);
 
         //Setting headers
         let mut headers = serde_yaml::Mapping::with_capacity(1);

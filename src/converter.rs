@@ -10,11 +10,11 @@ use reqwest::{
     Method,
     multipart::{Form,Part}
 };
+use rustc_hash::FxHashMap as HashMap;
 use tokio::fs;
 
 use std::{
     str::FromStr,
-    collections::HashMap,
     error::Error as StdError
 };
 
@@ -44,7 +44,7 @@ pub async fn convert_request(http_client: &HttpClient, request: &Request) -> Res
     } else if !body.formdata.is_empty() {
         builder = add_multipart_form_data(builder, body).await?;
     } else if !body.urlencoded.is_empty() {
-        builder = add_url_encoded_data(builder, body);
+        builder = add_url_encoded_data(builder, body).await;
     } 
 
     Ok(builder.build()?)
@@ -88,8 +88,8 @@ fn get_file_name(path: &str) -> Result<String, tokio::io::Error> {
     Ok(iter.last().unwrap().to_string())
 }
 
-fn add_url_encoded_data(builder: RequestBuilder, body: &Body) -> RequestBuilder {
-    let mut params = HashMap::with_capacity(body.urlencoded.len());
+async fn add_url_encoded_data(builder: RequestBuilder, body: &Body) -> RequestBuilder {
+    let mut params = HashMap::default();
 
     body.urlencoded.iter().for_each(|(k,v)| {
         params.insert(k.as_str().unwrap().to_owned(), v.as_str().unwrap().to_owned());

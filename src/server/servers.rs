@@ -1,15 +1,14 @@
 
 use crossbeam::channel::Sender;
 use log::*;
+use rustc_hash::FxHashMap as HashMap;
 use tokio::{
     sync::Mutex,
     task
 };
 
-use std::{
-    collections::HashMap,
-    sync::Arc
-};
+use std::sync::Arc
+;
 
 use crate::{
     bombardier::Bombardier,
@@ -39,8 +38,8 @@ impl Context {
 
 pub async fn serve(port: u16, ws_port: u16) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let context_arc = Arc::new(Context {
-        bombardiers_map :  Arc::new(Mutex::new(HashMap::new())),
-        transmitters_map: Arc::new(Mutex::new(HashMap::new()))
+        bombardiers_map :  Arc::new(Mutex::new(HashMap::default())),
+        transmitters_map: Arc::new(Mutex::new(HashMap::default()))
     });
 
     let context_clone = context_arc.clone();

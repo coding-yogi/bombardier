@@ -7,12 +7,10 @@ use reqwest::{
     Response, 
     header::{HeaderMap, CONTENT_TYPE}
 };
+use rustc_hash::FxHashMap as HashMap;
 use serde_yaml::Mapping;
 
-use std::{
-    collections::HashMap,
-    error::Error
-};
+use std::error::Error;
 
 use crate::model;
 

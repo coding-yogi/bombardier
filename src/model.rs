@@ -146,7 +146,7 @@ pub struct Request {
 
     pub name: String,
 
-    pub url: url::Url,
+    pub url: String,
 
     pub method: String,
 

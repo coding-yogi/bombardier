@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::Local;
 use crossbeam::channel::{self, Sender, Receiver};
 use log::{error, info, warn};
 
@@ -28,7 +28,7 @@ pub struct Stats {
 impl Stats {
     pub fn new(name: &str, status: u16, latency: u128) -> Stats {
         Stats {
-            timestamp: Utc::now().to_rfc3339(),
+            timestamp: Local::now().to_string(),
             name: String::from(name),
             status,
             latency

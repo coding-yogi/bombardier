@@ -4,9 +4,8 @@ pub mod stats;
 use chrono::{DateTime, Duration};
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
+use rustc_hash::FxHashSet as HashSet;
 use log::error;
-
-use std::collections::HashSet;
 
 use crate::report::stats::Stats;
 use crate::data;
@@ -97,7 +96,8 @@ fn print_summary_table(et: i64, total_hits: usize, total_errors: f32) {
 }
 
 fn get_execution_time(stats: &[Stats]) -> i64 {
-    let starttime = DateTime::parse_from_rfc3339(&stats[0].timestamp).unwrap() - Duration::milliseconds(stats[0].latency as i64);
-    let endtime = DateTime::parse_from_rfc3339(&stats[stats.len()-1].timestamp).unwrap();
+    let format = "%Y-%m-%d %H:%M:%S%.6f %z";
+    let starttime = DateTime::parse_from_str(&stats[0].timestamp, format).unwrap() - Duration::milliseconds(stats[0].latency as i64);
+    let endtime = DateTime::parse_from_str(&stats[stats.len()-1].timestamp, format).unwrap();
     endtime.signed_duration_since(starttime).num_seconds()
 }
