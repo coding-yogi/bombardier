@@ -98,11 +98,11 @@ async fn get_async_client(config: &model::Config)  -> Result<Client, Box<dyn Err
 }
 
 impl HttpClient {
-    pub async fn execute(&self, request: Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {  
+    pub async fn execute(&self, request: Request) -> Result<(Response, u32), Box<dyn Error + Send + Sync>>  {  
         //Initialising timestamps
         let start_time = time::Instant::now();
         let resp = self.client.execute(request).await?;
-        let end_time = start_time.elapsed().as_millis();
+        let end_time = start_time.elapsed().as_millis() as u32;
        
         Ok((resp, end_time))
     }

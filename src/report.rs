@@ -26,13 +26,13 @@ pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>
         let name_filter: Vec<&Stats> = stats.par_iter().filter(|s| s.name == name).collect();
         let num = name_filter.len();
 
-        let mut times: Vec<u128> = name_filter.par_iter().map(|s| s.latency).collect();
+        let mut times: Vec<u32> = name_filter.par_iter().map(|s| s.latency).collect();
         times.sort_unstable();
 
         let (min, max) = (times[0], times[num-1]);
         let (pc_90, pc_95, pc_99) = get_all_percentiles(&times);
 
-        let sum: usize = times.par_iter().sum::<u128>() as usize;
+        let sum: usize = times.par_iter().sum::<u32>() as usize;
         let avg: usize = sum/num;
         let tput: f32 = num as f32 / et as f32;
         let errors = name_filter.par_iter().filter(|s| s.status >= 400).count() as f32;
@@ -70,7 +70,7 @@ async fn get_stats(report_file: &str) -> Result<(HashSet<String>, Vec<Stats>), B
     Ok((names, stats))
 }
 
-fn get_percentile(sorted_vector: &[u128], p: usize) -> u128 {
+fn get_percentile(sorted_vector: &[u32], p: usize) -> u32 {
     let len = sorted_vector.len();
     match p*len/100 {
         0 => sorted_vector[0],
@@ -78,7 +78,7 @@ fn get_percentile(sorted_vector: &[u128], p: usize) -> u128 {
     }
 }
 
-fn get_all_percentiles(times: &[u128]) -> (u128, u128, u128) {
+fn get_all_percentiles(times: &[u32]) -> (u32, u32, u32) {
     (get_percentile(times, 90), get_percentile(times, 95), get_percentile(times, 99))
 }
 

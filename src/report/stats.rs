@@ -19,25 +19,27 @@ use super::csv::CSVWriter;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Stats {
     pub timestamp: String,
+    pub thread_count: u16,
     pub status: u16,
-    pub latency: u128,
+    pub latency: u32,
     pub name: String,
 }
 
 impl Stats {
-    pub fn new(name: &str, status: u16, latency: u128) -> Stats {
+    pub fn new(name: &str, status: u16, latency: u32, thread_count: u16) -> Stats {
         Stats {
             timestamp: Local::now().to_string(),
             name: String::from(name),
             status,
-            latency
+            latency,
+            thread_count
         }
     }
 }
 
 impl fmt::Display for Stats {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "{}, {}, {}, {:width$}", self.timestamp, self.status, self.latency, self.name, width = 35)
+        writeln!(f, "{}, {}, {}, {}, {:width$}", self.timestamp, self.thread_count, self.status, self.latency, self.name, width = 35)
     }
 }
 
@@ -61,10 +63,17 @@ impl StatsConsumer {
         let is_db_configured = db_writer.is_some();
         
         //Initialize CSV Writer if execution is not distributed
+        let report_file;
+        if config.report_file.is_empty() {
+            report_file = "report.csv";
+        } else {
+            report_file = &config.report_file;
+        }
+
         let mut csv_writer = None;
         let is_distributed = config.distributed;
         if !is_distributed {
-            csv_writer = match csv::CSVWriter::new("report.csv").await {
+            csv_writer = match csv::CSVWriter::new(report_file).await {
                 Ok(w) => Some(w),
                 Err(err) => return Err(err.to_string())
             };

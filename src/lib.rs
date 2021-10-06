@@ -54,7 +54,7 @@ async fn bombard(app: App<'_>) {
         None => return
     };
 
-    //Get content of env file
+    //Get content of scenarios file
     let scenarios_file_path = app.arg_value_as_str(cmd::SCENARIOS_FILE_ARG_NAME);
     let scenarios_content = match get_file_content(&scenarios_file_path).await {
         Some(c) => c,
@@ -63,6 +63,7 @@ async fn bombard(app: App<'_>) {
 
     //Get data file path
     config.data_file = app.arg_value_as_str(cmd::DATA_FILE_ARG_NAME);
+    config.report_file = app.arg_value_as_str(cmd::REPORT_FILE_ARG_NAME);
 
     info!("Prepare bombardier");
     let bombardier = Bombardier::new(config, env_content, scenarios_content).unwrap();

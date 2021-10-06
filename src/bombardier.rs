@@ -6,12 +6,12 @@ use reqwest::Request as Reqwest;
 use serde::{Serialize, Deserialize};
 use rustc_hash::FxHashMap as HashMap;
 use tokio::{
-    sync::Mutex as TMutex,
+    sync::{Mutex as TMutex},
     task::spawn,
     time
 };
 
-use std::{error::Error, sync::Arc};
+use std::{error::Error, sync::{Arc, atomic::{AtomicU16, Ordering}}};
 
 use crate::{
     converter, 
@@ -85,9 +85,13 @@ impl Bombardier {
         
         let mut handles = vec![];
         let start_time = Utc::now();
+
+        let threads_running = Arc::new(AtomicU16::new(0));
         
         for thread_cnt in 0..thread_count {
-            info!("Starting thread: {}", thread_cnt);
+            info!("Starting thread: {}", thread_cnt+1);
+            threads_running.fetch_add(1, Ordering::SeqCst);
+
             let requests = requests.clone();
             let client = client.clone();
 
@@ -95,6 +99,7 @@ impl Bombardier {
             let data_provider = data_provider_arc.clone();
             let stats_sender = stats_sender_arc.clone();
             let reqwest_cache = reqwest_cache.clone();
+            let threads_running_clone = threads_running.clone();
 
             let mut thread_iteration = 0;
 
@@ -145,7 +150,7 @@ impl Bombardier {
                                     Ok(()) => ()
                                 }
 
-                                let new_stats = stats::Stats::new(&request.name, status_code, latency);
+                                let new_stats = stats::Stats::new(&request.name, status_code, latency, threads_running_clone.load(Ordering::SeqCst));
                                 vec_stats.push(new_stats); //Add stats to vector
 
                                 if status_code > 399 { //check status
@@ -165,7 +170,7 @@ impl Bombardier {
                             }
                         }
 
-                        time::sleep(time::Duration::from_millis(think_time)).await; //wait per request delay
+                        time::sleep(time::Duration::from_millis(think_time as u64)).await; //wait per request delay
                     };
                     
                     stats_sender.try_send(vec_stats).unwrap();
@@ -173,7 +178,7 @@ impl Bombardier {
             });
 
             handles.push(handle);
-            time::sleep(time::Duration::from_millis(thread_delay)).await; //wait per thread delay
+            time::sleep(time::Duration::from_millis(thread_delay as u64)).await; //wait per thread delay
         }
 
         futures::future::join_all(handles).await;

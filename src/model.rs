@@ -4,10 +4,9 @@ use serde_yaml::Mapping;
 //Config is the model for execution configuration
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Config {
-    #[serde(deserialize_with = "check_non_zero")]
     #[serde(default = "default_to_one")]
     #[serde(rename = "threadCount")]
-    pub thread_count: u64,
+    pub thread_count: u16,
 
     #[serde(default)]
     pub iterations: u64,
@@ -18,11 +17,11 @@ pub struct Config {
 
     #[serde(default = "default_to_one")]
     #[serde(rename = "thinkTime")]
-    pub think_time: u64,
+    pub think_time: u16,
 
     #[serde(deserialize_with = "check_non_zero")]
     #[serde(rename = "rampUpTime")]
-    pub rampup_time: u64,
+    pub rampup_time: u16,
     
     #[serde(default)]
     #[serde(rename = "handleCookies")]
@@ -39,15 +38,21 @@ pub struct Config {
     pub ssl: Ssl,
 
     #[serde(skip_deserializing)]
+    #[serde(skip_serializing)]
     pub distributed: bool,
 
     #[serde(skip_deserializing)]
-    pub data_file: String
+    #[serde(skip_serializing)]
+    pub data_file: String,
+
+    #[serde(skip_deserializing)]
+    #[serde(skip_serializing)]
+    pub report_file: String
 }
 
-fn check_non_zero <'de, D>(deserializer: D) -> Result<u64, D::Error> 
+fn check_non_zero <'de, D>(deserializer: D) -> Result<u16, D::Error> 
 where D: Deserializer<'de> {    
-    let val = u64::deserialize(deserializer)?;
+    let val = u16::deserialize(deserializer)?;
     if val == 0 {
         return Err(Error::custom("Value cannot be zero"))
     }
@@ -55,7 +60,7 @@ where D: Deserializer<'de> {
     Ok(val)
 }
 
-fn default_to_one() -> u64 {
+fn default_to_one() -> u16 {
     1
 }
 

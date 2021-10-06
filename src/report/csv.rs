@@ -16,7 +16,7 @@ impl CSVWriter {
         };
 
         //write header row
-        csv_writer.report_file.write_all("timestamp, status, latency, name\n".as_bytes()).await?;
+        csv_writer.report_file.write_all("timestamp, thread_count, status, latency, name\n".as_bytes()).await?;
         Ok(csv_writer)
     }
 
