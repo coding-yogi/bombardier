@@ -85,7 +85,7 @@ impl Bombardier {
         
         let mut handles = vec![];
         let start_time = Utc::now();
-
+        
         let threads_running = Arc::new(AtomicU16::new(0));
         
         for thread_cnt in 0..thread_count {

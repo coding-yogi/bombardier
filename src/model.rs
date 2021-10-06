@@ -6,7 +6,7 @@ use serde_yaml::Mapping;
 pub struct Config {
     #[serde(default = "default_to_one")]
     #[serde(rename = "threadCount")]
-    pub thread_count: u16,
+    pub thread_count: u32,
 
     #[serde(default)]
     pub iterations: u64,
@@ -17,11 +17,11 @@ pub struct Config {
 
     #[serde(default = "default_to_one")]
     #[serde(rename = "thinkTime")]
-    pub think_time: u16,
+    pub think_time: u32,
 
     #[serde(deserialize_with = "check_non_zero")]
     #[serde(rename = "rampUpTime")]
-    pub rampup_time: u16,
+    pub rampup_time: u32,
     
     #[serde(default)]
     #[serde(rename = "handleCookies")]
@@ -50,9 +50,9 @@ pub struct Config {
     pub report_file: String
 }
 
-fn check_non_zero <'de, D>(deserializer: D) -> Result<u16, D::Error> 
+fn check_non_zero <'de, D>(deserializer: D) -> Result<u32, D::Error> 
 where D: Deserializer<'de> {    
-    let val = u16::deserialize(deserializer)?;
+    let val = u32::deserialize(deserializer)?;
     if val == 0 {
         return Err(Error::custom("Value cannot be zero"))
     }
@@ -60,7 +60,7 @@ where D: Deserializer<'de> {
     Ok(val)
 }
 
-fn default_to_one() -> u16 {
+fn default_to_one() -> u32 {
     1
 }
 
