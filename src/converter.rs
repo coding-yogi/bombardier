@@ -21,7 +21,6 @@ use std::{
 use crate::model::{Request, Body};
 use crate::protocol::http::HttpClient;
 
-#[inline(never)]
 pub async fn convert_request(http_client: &HttpClient, request: &Request) -> Result<Reqwest, Box<dyn StdError + Send + Sync>> {
     //Method
     let method = Method::from_str(&request.method)?;

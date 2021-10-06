@@ -213,7 +213,7 @@ async fn process_request(http_client: &HttpClient, request: &Request, env_map: &
     }
 }
 
-fn get_reqwest_from_cache<'a>(cache: Arc<Mutex<HashMap<uuid::Uuid, Reqwest>>>, id: &uuid::Uuid) -> Result<Reqwest, Box<dyn Error + Send + Sync>>{
+fn get_reqwest_from_cache(cache: Arc<Mutex<HashMap<uuid::Uuid, Reqwest>>>, id: &uuid::Uuid) -> Result<Reqwest, Box<dyn Error + Send + Sync>>{
     let cache_guard = cache.lock();
     if let Some(reqwest) = cache_guard.get(id) {
         Ok(reqwest.try_clone().unwrap())

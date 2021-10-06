@@ -1,7 +1,6 @@
 use chrono::Local;
 use crossbeam::channel::{self, Sender, Receiver};
 use log::{error, info, warn};
-
 use serde::{Serialize, Deserialize};
 use tokio::{net::TcpStream, sync::Mutex, task, task::JoinHandle};
 use tokio_tungstenite::MaybeTlsStream;
@@ -91,7 +90,7 @@ impl StatsConsumer {
         let csv_writer = self.csv_writer.clone();
         let websocket = self.websocket.clone();
 
-        let stats_batch: Vec<Stats> = Vec::with_capacity(150);
+        let stats_batch: Vec<Stats> = Vec::with_capacity(100);
         let stats_batch_arc = Arc::new(Mutex::new(stats_batch));
 
         task::spawn(async move {

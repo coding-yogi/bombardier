@@ -29,9 +29,8 @@ pub fn param_substitution(content: &str, params: &HashMap<String, String>) -> St
 
     if content.contains("{{") {
         for cap in RE.captures_iter(content) {
-            let map_value = params.get(&cap[1]);
-            if map_value.is_some() {
-                new_value = new_value.replace(&cap[0], &map_value.unwrap());
+            if let Some(map_value) = params.get(&cap[1]) {
+                new_value = new_value.replace(&cap[0], map_value);
             } else {
                 warn!("Param {} not found in env map", &cap[1]);
             }

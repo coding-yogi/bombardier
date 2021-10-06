@@ -33,7 +33,7 @@ pub fn parse_config(content: String) -> Result<Config, Box<dyn std::error::Error
 
 pub fn parse_requests(content: &str, env_map: &HashMap<String, String>) -> Result<Vec<Request>, Box<dyn Error>> {
     info!("Preparing bombardier requests");
-    let scenarios_yml = preprocessor::param_substitution(&content, env_map);
+    let scenarios_yml = preprocessor::param_substitution(content, env_map);
 
     let root: Root = match serde_yaml::from_str(&scenarios_yml) {
         Ok(r) => r,
