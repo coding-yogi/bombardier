@@ -20,6 +20,12 @@ pub struct App<'a> {
     arg_matches: ArgMatches<'a>
 }
 
+impl<'a> Default for App<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> App<'a> {
     pub fn new() -> Self {  
          App {

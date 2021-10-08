@@ -18,15 +18,7 @@ impl InfluxDBWriter {
             return None;
         }
 
-        let db_url= format!("{}/write?db={}&precision=ms", db.url, db.name);
-        
-        let url = match url::Url::parse(&db_url) {
-            Ok(url) => url,
-            Err(err) => {
-                error!("Error occurred while parsing influx DB url {}", err);
-                return None;
-            }
-        };
+        let url= format!("{}/write?db={}&precision=ms", db.url, db.name);
 
         //Setting headers
         let mut headers = serde_yaml::Mapping::with_capacity(1);
@@ -37,7 +29,7 @@ impl InfluxDBWriter {
             headers.insert(Value::from("authorization"), Value::from(format!("Basic {}", base64::encode(format!("{}:{}",db.user,db.password)))));
         }
 
-        match HttpClient::get_default_sync_client() {
+        match HttpClient::get_default_async_client() {
             Ok(http_client) =>  Some(InfluxDBWriter {
                 client: http_client,
                 request: model::Request {

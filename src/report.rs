@@ -4,16 +4,15 @@ pub mod stats;
 use chrono::{DateTime, Duration};
 use prettytable::{Table, row, cell};
 use rayon::prelude::*;
-use std::fs::File;
-
-use std::collections::HashSet;
+use rustc_hash::FxHashSet as HashSet;
+use log::error;
 
 use crate::report::stats::Stats;
 use crate::data;
 
 pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::open(report_file)?;
-    let (names, stats) = get_stats(file).await?;
+
+    let (names, stats) = get_stats(report_file).await?;
 
     let mut table = Table::new();
     table.add_row(row![FY => "Request", "Total Hits", "Hits/s", "Min", "Avg", "Max", "90%", "95%", "99%", "Errors", "Error Rate"]);
@@ -27,13 +26,13 @@ pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>
         let name_filter: Vec<&Stats> = stats.par_iter().filter(|s| s.name == name).collect();
         let num = name_filter.len();
 
-        let mut times: Vec<u128> = name_filter.par_iter().map(|s| s.latency).collect();
+        let mut times: Vec<u32> = name_filter.par_iter().map(|s| s.latency).collect();
         times.sort_unstable();
 
         let (min, max) = (times[0], times[num-1]);
         let (pc_90, pc_95, pc_99) = get_all_percentiles(&times);
 
-        let sum: usize = times.par_iter().sum::<u128>() as usize;
+        let sum: usize = times.par_iter().sum::<u32>() as usize;
         let avg: usize = sum/num;
         let tput: f32 = num as f32 / et as f32;
         let errors = name_filter.par_iter().filter(|s| s.status >= 400).count() as f32;
@@ -52,8 +51,15 @@ pub async fn display(report_file: &str) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
-async fn get_stats(report_file: std::fs::File) -> Result<(HashSet<String>, Vec<Stats>), Box<dyn std::error::Error>> {
-    let mut data_provider = data::DataProvider::new(report_file).await;
+async fn get_stats(report_file: &str) -> Result<(HashSet<String>, Vec<Stats>), Box<dyn std::error::Error>> {
+    let mut data_provider = match data::DataProvider::new(report_file).await {
+        Some(data_provider) => data_provider,
+        None => {
+            error!("Unable to initialize data provider for {}", report_file);
+            return Err("Unable to initialize data provider".into())
+        }
+    };
+
     let mut stats: Vec<Stats> = data_provider.get_records_as().await.unwrap();
 
     let names = stats.iter().map(|s| {
@@ -64,7 +70,7 @@ async fn get_stats(report_file: std::fs::File) -> Result<(HashSet<String>, Vec<S
     Ok((names, stats))
 }
 
-fn get_percentile(sorted_vector: &[u128], p: usize) -> u128 {
+fn get_percentile(sorted_vector: &[u32], p: usize) -> u32 {
     let len = sorted_vector.len();
     match p*len/100 {
         0 => sorted_vector[0],
@@ -72,7 +78,7 @@ fn get_percentile(sorted_vector: &[u128], p: usize) -> u128 {
     }
 }
 
-fn get_all_percentiles(times: &[u128]) -> (u128, u128, u128) {
+fn get_all_percentiles(times: &[u32]) -> (u32, u32, u32) {
     (get_percentile(times, 90), get_percentile(times, 95), get_percentile(times, 99))
 }
 
@@ -90,7 +96,8 @@ fn print_summary_table(et: i64, total_hits: usize, total_errors: f32) {
 }
 
 fn get_execution_time(stats: &[Stats]) -> i64 {
-    let starttime = DateTime::parse_from_rfc3339(&stats[0].timestamp).unwrap() - Duration::milliseconds(stats[0].latency as i64);
-    let endtime = DateTime::parse_from_rfc3339(&stats[stats.len()-1].timestamp).unwrap();
+    let format = "%Y-%m-%d %H:%M:%S%.6f %z";
+    let starttime = DateTime::parse_from_str(&stats[0].timestamp, format).unwrap() - Duration::milliseconds(stats[0].latency as i64);
+    let endtime = DateTime::parse_from_str(&stats[stats.len()-1].timestamp, format).unwrap();
     endtime.signed_duration_since(starttime).num_seconds()
 }

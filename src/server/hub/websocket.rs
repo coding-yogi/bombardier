@@ -4,6 +4,7 @@ use log::*;
 use tokio_tungstenite::accept_async;
 use tungstenite::{ Error, Message };
 use uuid::Uuid;
+use rustc_hash::FxHashMap as HashMap;
 use tokio::{
     net::{
         TcpListener,
@@ -13,12 +14,7 @@ use tokio::{
     sync::Mutex
 };
 
-use std::{
-    collections::HashMap,
-    sync::{
-        Arc 
-    }
-};
+use std::sync::Arc;
 
 use crate::{
     protocol::

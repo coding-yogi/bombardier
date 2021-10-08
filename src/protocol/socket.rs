@@ -16,7 +16,6 @@ pub struct WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
 }
 
 impl <T> WebSocketSink<T> where T: AsyncRead + AsyncWrite + Unpin {
-
     pub fn new(sink: SplitSink<TTWebSocketStream<T>, Message>) -> Self {
         WebSocketSink { sink }
     }

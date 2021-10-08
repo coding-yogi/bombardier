@@ -24,7 +24,6 @@ use crate::{
 };
 
 pub async fn process_subcommand(app: App<'_>) {
-
     let subcommand = app.subcommand();
     if subcommand.is_empty() {
         error!("No subcommand found. Should either be 'bombard', 'report', 'hub' or 'node'");
@@ -55,7 +54,7 @@ async fn bombard(app: App<'_>) {
         None => return
     };
 
-    //Get content of env file
+    //Get content of scenarios file
     let scenarios_file_path = app.arg_value_as_str(cmd::SCENARIOS_FILE_ARG_NAME);
     let scenarios_content = match get_file_content(&scenarios_file_path).await {
         Some(c) => c,
@@ -64,21 +63,24 @@ async fn bombard(app: App<'_>) {
 
     //Get data file path
     config.data_file = app.arg_value_as_str(cmd::DATA_FILE_ARG_NAME);
+    config.report_file = app.arg_value_as_str(cmd::REPORT_FILE_ARG_NAME);
 
     info!("Prepare bombardier");
     let bombardier = Bombardier::new(config, env_content, scenarios_content).unwrap();
     
-    let (stats_sender,  stats_receiver_handle) = 
+    let (stats_consumer, sender) = 
     match stats::StatsConsumer::new(&bombardier.config, Arc::new(Mutex::new(None))).await {
-        Ok((s,r)) => (s,r),
+        Ok(consumer) => consumer,
         Err(err) => {
             error!("Error while initializing stats consumer {}", err);
             return
         }
     };
 
+    let stats_receiver_handle = stats_consumer.consume().await;
+
     info!("Bombarding !!!");
-    match bombardier.bombard(stats_sender).await {
+    match bombardier.bombard(sender).await {
         Err(err) => error!("Bombarding failed : {}", err),
         Ok(()) => info!("Bombarding Complete. Run report command to get details")
     }   

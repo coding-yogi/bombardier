@@ -110,7 +110,7 @@ Bombardier can run inside a container too. You can build the image with below co
 `docker build . -t bombardier`  
 
 Container can be started using below command  
-`docker run --name bombardier -v $PWD:/home bombardier:latest bombard -c /home/config.yml -s /home/scenarios.yml -e /home/env.yml`  
+`docker run --name bombardier -v $PWD:/home/tests bombardier:latest bombard -c ./tests/config.yml -s ./tests/scenarios.yml -e ./tests/env.yml -r ./tests/report.csv`  
 
 Note the volume used. Present working directory on host is mapped to `/home` directory on the container. 
 With this approach you need not copy your config file or collections file into the container.

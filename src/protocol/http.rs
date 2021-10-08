@@ -98,20 +98,19 @@ async fn get_async_client(config: &model::Config)  -> Result<Client, Box<dyn Err
 }
 
 impl HttpClient {
-    pub async fn execute(&self, request: Request) -> Result<(Response, u128), Box<dyn Error + Send + Sync>>  {  
+    pub async fn execute(&self, request: Request) -> Result<(Response, u32), Box<dyn Error + Send + Sync>>  {  
         //Initialising timestamps
         let start_time = time::Instant::now();
         let resp = self.client.execute(request).await?;
-        let end_time = start_time.elapsed().as_millis();
+        let end_time = start_time.elapsed().as_millis() as u32;
        
         Ok((resp, end_time))
     }
 }
 
 impl HttpClient {
-    pub fn get_default_sync_client() -> Result<HttpClient, reqwest::Error> {
+    pub fn get_default_async_client() -> Result<HttpClient, reqwest::Error> {
         let client = Client::builder()
-            .user_agent("bombardier")
             .build()?;
 
         Ok(HttpClient {client})
