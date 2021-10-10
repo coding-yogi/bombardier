@@ -149,8 +149,8 @@ mod tests {
         let env_map_yaml = r"
         version: 1.0,
         variables:
-            variable1: value1
-            variable2: value2";
+          variable1: value1
+          variable2: value2";
     
         let env_map = parse_env_map(env_map_yaml);
         assert!(env_map.is_ok());
@@ -338,6 +338,6 @@ mod tests {
         "#;
         
         let requests = parse_requests(scenarios_yaml, &HashMap::default()).unwrap();
-        assert_eq!(requests[0].body.raw,String::from(r#"{"test": "test"}"#));
+        assert_eq!(requests[0].body.formdata.len(),3);
     }
 }

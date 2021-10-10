@@ -43,7 +43,7 @@ pub fn param_substitution(content: &str, params: &HashMap<String, String>) -> St
 #[cfg(test)]
 mod tests {
   use crate::parse::preprocessor::*;
-  
+
   #[test]
   fn test_param_substitution_with_no_sustitutions() {
       let scenarios_yaml = r"
@@ -139,20 +139,16 @@ mod tests {
 
   #[test]
   fn test_process() {
-      let scenarios_yaml = r"
-      version: 1.0
-      scenarios:
-      - name: scenario1
-        requests:
-        - name: echoGet
-          method: {{method}}
-          url: '{{baseurl}}'";
+      let request_yaml = r"
+      name: echoGet
+      method: '{{method}}'
+      url: '{{baseurl}}'";
 
       let mut env_map = HashMap::default();
       env_map.insert(String::from("method"), String::from("POST"));
       env_map.insert(String::from("baseurl"), String::from("https://google.com"));
 
-      let request = serde_yaml::from_str::<Request>(scenarios_yaml).unwrap();
+      let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
       let processed_request = process(&request, &env_map);
 
       assert_eq!(processed_request.method, String::from("POST"));

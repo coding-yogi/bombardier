@@ -133,27 +133,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_header_map_with_no_headers() {
-        let scenarios_yaml = r"
+        let request_yaml = r"
         name: echoGet
         method: GET
         url: 'https://google.com/'";
         
-        let request = serde_yaml::from_str::<Request>(scenarios_yaml).unwrap();
+        let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
         let headers = get_header_map_from_request(&request).await.unwrap();
         assert!(headers.is_empty())
     }
 
     #[tokio::test]
     async fn test_get_header_map_with_multiple_headers() {
-        let scenarios_yaml = r"
+        let request_yaml = r"
         name: echoGet
         method: GET
         url: 'https://google.com/'
         headers:
-        authorization: 'jwt some_token_value'
-        accept: 'application/json'";
+          authorization: 'jwt some_token_value'
+          accept: 'application/json'";
         
-        let request = serde_yaml::from_str::<Request>(scenarios_yaml).unwrap();
+        let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
         let headers = get_header_map_from_request(&request).await.unwrap();
         assert!(headers.len() == 2);
         assert!(headers.get("accept").unwrap().to_str().unwrap() == "application/json")
@@ -161,15 +161,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_convert_get_request() {
-        let scenarios_yaml = r"
+        let request_yaml = r"
         name: echoGet
         method: GET
         url: 'https://google.com/'
         headers:
-        authorization: 'jwt some_token_value'
-        accept: 'application/json'";
+          authorization: 'jwt some_token_value'
+          accept: 'application/json'";
 
-        let request = serde_yaml::from_str::<Request>(scenarios_yaml).unwrap();
+        let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
         let client = HttpClient::get_default_async_client().unwrap();
         
         let reqwest = convert_request(&client, &request).await;
@@ -183,7 +183,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_convert_urlencoded_request() {
-        let scenarios_yaml = r"
+        let request_yaml = r"
         name: echoGet
         method: POST
         url: 'https://google.com/'
@@ -192,7 +192,7 @@ mod tests {
             key1: value1
             key2: value2";
 
-        let request = serde_yaml::from_str::<Request>(scenarios_yaml).unwrap();
+        let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
         let client = HttpClient::get_default_async_client().unwrap();
         
         let reqwest = convert_request(&client, &request).await;
@@ -209,14 +209,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_convert_raw_request() {
-        let scenarios_yaml = r#"
+        let request_yaml = r#"
         name: echoGet
         method: POST
         url: 'https://google.com/'
         body: 
           raw: '{ "test":"test" }'"#;
 
-        let request = serde_yaml::from_str::<Request>(scenarios_yaml).unwrap();
+        let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
         let client = HttpClient::get_default_async_client().unwrap();
         
         let reqwest = convert_request(&client, &request).await.unwrap();
