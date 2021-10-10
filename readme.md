@@ -1,4 +1,5 @@
-# Bombardier ![bombardier](https://github.com/coding-yogi/bombardier/workflows/bombardier/badge.svg)
+# Bombardier ![bombardier](https://github.com/coding-yogi/bombardier/workflows/bombardier/badge.svg) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/coding-yogi/bombardier/blob/develop/LICENSE)
+
 Rust based HTTP load testing tool using yaml files.  
 
 Bombardier can take your simple yaml based files containing scenarios & environment variables and bombard your application with a defined load.  

@@ -161,71 +161,76 @@ pub fn arg_value_as_u16(matches: Option<&ArgMatches>, arg: &str) -> u16 {
     }
 }
 
-#[test]
-fn test_is_yml() {
-    assert_eq!(is_yml(String::from("/some/file/path/file.yml")), Ok(()));
-    assert_eq!(is_yml(String::from("/some/file/path/file.csv")), Err(String::from("Should be a .yml file")));
-}
+#[cfg(test)]
+mod tests {
+    use crate::cmd::*;
 
-#[test]
-fn test_is_csv() {
-    assert_eq!(is_csv(String::from("/some/file/path/file.csv")), Ok(()));
-    assert_eq!(is_csv(String::from("/some/file/path/file.yml")), Err(String::from("Should be a .csv file")));
-}
+    #[test]
+    fn test_is_yml() {
+        assert_eq!(is_yml(String::from("/some/file/path/file.yml")), Ok(()));
+        assert_eq!(is_yml(String::from("/some/file/path/file.csv")), Err(String::from("Should be a .yml file")));
+    }
 
-#[test]
-fn test_is_u16() {
-    assert_eq!(is_u16(String::from("0")), Ok(()));
-    assert_eq!(is_u16(String::from("abc")), Err(String::from("Should be an integer")));
-}
+    #[test]
+    fn test_is_csv() {
+        assert_eq!(is_csv(String::from("/some/file/path/file.csv")), Ok(()));
+        assert_eq!(is_csv(String::from("/some/file/path/file.yml")), Err(String::from("Should be a .csv file")));
+    }
 
-#[test]
-fn test_arg_value_as_str() {
-    let command = "bombardier";
-    let subcommand = "bombard";
-    let short_flag = "c";
-    let flag_value = "some/config/file.yml";
-    let help = "Execution config yml file";
+    #[test]
+    fn test_is_u16() {
+        assert_eq!(is_u16(String::from("0")), Ok(()));
+        assert_eq!(is_u16(String::from("abc")), Err(String::from("Should be an integer")));
+    }
 
-    let arg_matches = ClapApp::new("Bombardier")
-            .subcommand(SubCommand::with_name(subcommand)
-                .arg(get_arg(CONFIG_FILE_ARG_NAME, short_flag, true, help)))
-                .get_matches_from(vec![command, subcommand, &format!("-{}", short_flag), flag_value]);
+    #[test]
+    fn test_arg_value_as_str() {
+        let command = "bombardier";
+        let subcommand = "bombard";
+        let short_flag = "c";
+        let flag_value = "some/config/file.yml";
+        let help = "Execution config yml file";
 
-    let app = App {
-        arg_matches
-    };
+        let arg_matches = ClapApp::new("Bombardier")
+                .subcommand(SubCommand::with_name(subcommand)
+                    .arg(get_arg(CONFIG_FILE_ARG_NAME, short_flag, true, help)))
+                    .get_matches_from(vec![command, subcommand, &format!("-{}", short_flag), flag_value]);
 
-    assert_eq!(app.subcommand(), String::from(subcommand));
-    assert_eq!(app.arg_value_as_str(CONFIG_FILE_ARG_NAME), String::from(flag_value));
-}
+        let app = App {
+            arg_matches
+        };
 
-#[test]
-fn test_arg_value_as_u16() {
-    let command = "bombardier";
-    let subcommand = "hub";
-    let short_flag = "p";
-    let valid_flag_value  = "8000";
-    let invalid_flag_value = "xyz";
-    let help = "port";
+        assert_eq!(app.subcommand(), String::from(subcommand));
+        assert_eq!(app.arg_value_as_str(CONFIG_FILE_ARG_NAME), String::from(flag_value));
+    }
 
-    let clap_app = ClapApp::new("Bombardier")
-            .subcommand(SubCommand::with_name(subcommand)
-                .arg(get_arg(SERVER_PORT_ARG_NAME, short_flag, true, help)));
+    #[test]
+    fn test_arg_value_as_u16() {
+        let command = "bombardier";
+        let subcommand = "hub";
+        let short_flag = "p";
+        let valid_flag_value  = "8000";
+        let invalid_flag_value = "xyz";
+        let help = "port";
 
-    let app = App {
-        arg_matches: clap_app.get_matches_from(vec![command, subcommand, &format!("-{}", short_flag), valid_flag_value])
-    };
+        let clap_app = ClapApp::new("Bombardier")
+                .subcommand(SubCommand::with_name(subcommand)
+                    .arg(get_arg(SERVER_PORT_ARG_NAME, short_flag, true, help)));
 
-    assert_eq!(app.arg_value_as_u16(SERVER_PORT_ARG_NAME), valid_flag_value.parse::<u16>().unwrap());
+        let app = App {
+            arg_matches: clap_app.get_matches_from(vec![command, subcommand, &format!("-{}", short_flag), valid_flag_value])
+        };
 
-    let clap_app = ClapApp::new("Bombardier")
-            .subcommand(SubCommand::with_name(subcommand)
-                .arg(get_arg(SERVER_PORT_ARG_NAME, short_flag, true, help)));
+        assert_eq!(app.arg_value_as_u16(SERVER_PORT_ARG_NAME), valid_flag_value.parse::<u16>().unwrap());
 
-    let app = App {
-        arg_matches: clap_app.get_matches_from(vec![command, subcommand, &format!("-{}", short_flag), invalid_flag_value])
-    };
+        let clap_app = ClapApp::new("Bombardier")
+                .subcommand(SubCommand::with_name(subcommand)
+                    .arg(get_arg(SERVER_PORT_ARG_NAME, short_flag, true, help)));
 
-    assert_eq!(app.arg_value_as_u16(SERVER_PORT_ARG_NAME), 0);
+        let app = App {
+            arg_matches: clap_app.get_matches_from(vec![command, subcommand, &format!("-{}", short_flag), invalid_flag_value])
+        };
+
+        assert_eq!(app.arg_value_as_u16(SERVER_PORT_ARG_NAME), 0);
+    }
 }
