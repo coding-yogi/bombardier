@@ -180,7 +180,7 @@ pub async fn start(ctx: Arc<servers::Context>, form_data: FormData, ) -> Result<
 
     //Parse config
     info!("Parsing config file content");
-    let mut config = match parser::parse_config(config_content) {
+    let mut config = match parser::parse_config(&config_content) {
         Ok(config) => config,
         Err(err) => return ErrorResponse::new(400, &err.to_string()).get_warp_reply()
     };

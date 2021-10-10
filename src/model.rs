@@ -21,6 +21,7 @@ pub struct Config {
 
     #[serde(deserialize_with = "check_non_zero")]
     #[serde(rename = "rampUpTime")]
+    #[serde(default = "default_to_one")]
     pub rampup_time: u32,
     
     #[serde(default)]

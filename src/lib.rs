@@ -119,7 +119,7 @@ async fn hub(app: App<'_>) {
 async fn get_config(file_path: &str) -> Option<Config> { 
     info!("Parsing config file {}", file_path);
     if let Some(config_content) = get_file_content(file_path).await {
-        if let Ok(config) = parser::parse_config(config_content) {
+        if let Ok(config) = parser::parse_config(&config_content) {
             return Some(config);
         }
     }
