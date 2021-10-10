@@ -225,4 +225,23 @@ mod tests {
         let str_body = from_utf8(reqwest.body().unwrap().as_bytes().unwrap()).unwrap();
         assert_eq!(str_body,r#"{ "test":"test" }"#);
     }
+
+    #[tokio::test]
+    async fn test_convert_multipart_form_request() {
+        let request_yaml = r#"
+        name: echoPostFormDataWithFile
+        method: POST
+        url: 'https://google.com/'
+        body:
+          formdata:
+            key21: value21
+            key22: value22
+        "#;
+
+        let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
+        let client = HttpClient::get_default_async_client().unwrap();
+        
+        let reqwest = convert_request(&client, &request).await.unwrap();
+        assert!(reqwest.body().is_some());
+    }
 }
