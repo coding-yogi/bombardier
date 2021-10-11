@@ -39,3 +39,120 @@ pub fn param_substitution(content: &str, params: &HashMap<String, String>) -> St
 
     new_value
 }
+
+#[cfg(test)]
+mod tests {
+  use crate::parse::preprocessor::*;
+
+  #[test]
+  fn test_param_substitution_with_no_sustitutions() {
+      let scenarios_yaml = r"
+      version: 1.0
+      scenarios:
+      - name: scenario1
+        requests:
+        - name: echoGet
+          method: GET
+          url: 'https://google.com/'
+          extractors:
+          - type: gjsonpath
+            extract:
+              authHeader: 'headers.authorization'
+              host: 'headers.host'";
+
+      let mut env_map = HashMap::default();
+      env_map.insert(String::from("url"), String::from("https://google.com"));
+
+      let substituted_string = param_substitution(scenarios_yaml, &env_map);
+      assert_eq!(String::from(scenarios_yaml), substituted_string);
+  }
+
+  #[test]
+  fn test_param_substitution_with_multiple_sustitutions() {
+      let scenarios_yaml = r"
+      version: 1.0
+      scenarios:
+      - name: scenario1
+        requests:
+        - name: echoGet
+          method: {{method}}
+          url: '{{baseurl}}'
+          headers:
+            authorization: 'jwt {{token}}'
+          body:
+            urlencoded:
+              param1: '{{param1Value}}'
+              param2: '{{param2Value}}'";
+
+      let mut env_map = HashMap::default();
+      env_map.insert(String::from("method"), String::from("POST"));
+      env_map.insert(String::from("baseurl"), String::from("https://google.com"));
+      env_map.insert(String::from("token"), String::from("some_token_value"));
+      env_map.insert(String::from("param1Value"), String::from("value1"));
+      env_map.insert(String::from("param2Value"), String::from("value2"));
+
+      let expected_substituted_yaml = r"
+      version: 1.0
+      scenarios:
+      - name: scenario1
+        requests:
+        - name: echoGet
+          method: POST
+          url: 'https://google.com'
+          headers:
+            authorization: 'jwt some_token_value'
+          body:
+            urlencoded:
+              param1: 'value1'
+              param2: 'value2'";
+
+      let substituted_string = param_substitution(scenarios_yaml, &env_map);
+      assert_eq!(String::from(substituted_string), String::from(expected_substituted_yaml));
+  }
+
+  #[test]
+  fn test_param_substitution_with_missing_sustitutions() {
+      let scenarios_yaml = r"
+      version: 1.0
+      scenarios:
+      - name: scenario1
+        requests:
+        - name: echoGet
+          method: {{method}}
+          url: '{{baseurl}}'";
+
+      let mut env_map = HashMap::default();
+      env_map.insert(String::from("baseurl"), String::from("https://google.com"));
+
+      let expected_substituted_yaml = r"
+      version: 1.0
+      scenarios:
+      - name: scenario1
+        requests:
+        - name: echoGet
+          method: {{method}}
+          url: 'https://google.com'";
+
+      let substituted_string = param_substitution(scenarios_yaml, &env_map);
+      assert_eq!(String::from(substituted_string), String::from(expected_substituted_yaml));
+  }
+
+  #[test]
+  fn test_process() {
+      let request_yaml = r"
+      name: echoGet
+      method: '{{method}}'
+      url: '{{baseurl}}'";
+
+      let mut env_map = HashMap::default();
+      env_map.insert(String::from("method"), String::from("POST"));
+      env_map.insert(String::from("baseurl"), String::from("https://google.com"));
+
+      let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
+      let processed_request = process(&request, &env_map);
+
+      assert_eq!(processed_request.method, String::from("POST"));
+      assert_eq!(processed_request.url, String::from("https://google.com"))   
+  }
+}
+

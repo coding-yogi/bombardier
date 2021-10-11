@@ -160,3 +160,86 @@ fn get_response_content_type(headers: &HeaderMap) -> &str {
         None => ""
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parse::postprocessor::*;
+    
+    #[tokio::test]
+    async fn test_is_json_response() {
+        let response = reqwest::get("https://httpbin.org/get").await.unwrap();
+        assert!(is_json_response(&response));
+    }
+
+    #[tokio::test]
+    async fn test_is_not_json_response() {
+        let response = reqwest::get("https://google.com/").await.unwrap();
+        assert!(!is_json_response(&response));
+    }
+
+    #[tokio::test]
+    async fn test_is_xml_response() {
+        let response = reqwest::get("https://httpbin.org/xml").await.unwrap();
+        assert!(is_xml_response(&response));
+    }
+
+    #[tokio::test]
+    async fn test_is_html_response() {
+        let response = reqwest::get("https://httpbin.org/html").await.unwrap();
+        assert!(is_xml_response(&response));
+    }
+
+    #[tokio::test]
+    async fn test_is_not_xml_response() {
+        let response = reqwest::get("https://httpbin.org/get").await.unwrap();
+        assert!(!is_xml_response(&response));
+    }
+
+    #[tokio::test]
+    async fn test_json_extractor() {
+        let response = reqwest::get("https://httpbin.org/get").await.unwrap();
+        let response_as_str = &get_response_as_string(response).await;
+        let json_extractor = JsonExtractor{};
+        assert_eq!(json_extractor.extract("headers.Host", response_as_str).unwrap(), String::from("httpbin.org"));
+    }
+
+    #[tokio::test]
+    async fn test_xml_extractor() {
+        let response = reqwest::get("https://httpbin.org/xml").await.unwrap();
+        let response_as_str = &get_response_as_string(response).await;
+        let xml_extractor = XpathExtractor{};
+        assert_eq!(xml_extractor.extract("//slide/title", response_as_str).unwrap(), String::from("Wake up to WonderWidgets!"));
+        assert_eq!(xml_extractor.extract("//slide/@type", response_as_str).unwrap(), String::from("all"));
+        assert_eq!(xml_extractor.extract("//slide[2]/item[3]/em[1]", response_as_str).unwrap(), String::from("buys"));
+    }
+
+    #[tokio::test]
+    async fn test_html_extractor() {
+        let response = reqwest::get("https://httpbin.org/html").await.unwrap();
+        let response_as_str = &get_response_as_string(response).await;
+        let xml_extractor = XpathExtractor{};
+        assert_eq!(xml_extractor.extract("//h1", response_as_str).unwrap(), String::from("Herman Melville - Moby-Dick"));
+        assert!(xml_extractor.extract("//body//p", response_as_str).unwrap().contains("summer-cool weather"));
+    }
+
+    #[tokio::test]
+    async fn test_regex_extractor() {
+        let text = "my birthday is on 15-Mar";
+        let regex_extractor = RegExExtractor{};
+        assert_eq!(regex_extractor.extract(r"\d{2}-[A-Z]{1}[a-z]{2}", text).unwrap(), String::from("15-Mar"));
+    }
+
+    #[tokio::test]
+    async fn test_extractor() {
+        let response = reqwest::get("https://httpbin.org/get").await.unwrap();
+        let response_as_str = &get_response_as_string(response).await;
+        let mut extractor = Mapping::new();
+        extractor.insert(serde_yaml::Value::from("host"), serde_yaml::Value::from("headers.Host"));
+        let mut env_map = HashMap::default();
+
+        extract(JsonExtractor, response_as_str, &extractor, &mut env_map).unwrap();
+        assert!(env_map.len() == 1);
+        assert_eq!(env_map.get("host").unwrap(), "httpbin.org");
+    }
+}
+
