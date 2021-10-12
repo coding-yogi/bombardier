@@ -65,7 +65,8 @@ async fn get_identity(path: &str, password: &str) -> Result<Identity, Box<dyn Er
 
 async fn get_async_client(config: &model::Config)  -> Result<Client, Box<dyn Error + Send + Sync>> {
     let mut client_builder = Client::builder()
-        .use_native_tls();
+        .use_native_tls()
+        .trust_dns(true);
 
     if config.handle_cookies {
         info!("Enabling cookie store");
