@@ -83,7 +83,7 @@ fn param_substitution_required(request: &Request) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::*;
+    use crate::{model::ExtractorType, parser::*};
 
     #[test]
     fn test_parse_config() {
@@ -198,7 +198,7 @@ mod tests {
             method: GET
             url: 'https://google.com/'
             extractors:
-            - type: gjsonpath
+            - type: GjsonPath
               extract:
                 authHeader: 'headers.authorization'
                 host: 'headers.host'";
@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(requests[0].method, "GET");
         assert_eq!(requests[0].url, "https://google.com/");
         assert_eq!(requests[0].extractors.len(), 1);
-        assert_eq!(requests[0].extractors[0].extractor_type, "gjsonpath");
+        assert_eq!(requests[0].extractors[0].extractor_type, ExtractorType::GjsonPath);
         assert_eq!(requests[0].extractors[0].extract.len(), 2);
         assert_eq!(requests[0].requires_preprocessing, false); //false as no more substitution required
     }
