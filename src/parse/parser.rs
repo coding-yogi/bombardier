@@ -83,7 +83,7 @@ fn param_substitution_required(request: &Request) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::*;
+    use crate::{model::{ExtractFrom, ExtractorType}, parser::*};
 
     #[test]
     fn test_parse_config() {
@@ -198,7 +198,7 @@ mod tests {
             method: GET
             url: 'https://google.com/'
             extractors:
-            - type: gjsonpath
+            - type: GjsonPath
               extract:
                 authHeader: 'headers.authorization'
                 host: 'headers.host'";
@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(requests[0].method, "GET");
         assert_eq!(requests[0].url, "https://google.com/");
         assert_eq!(requests[0].extractors.len(), 1);
-        assert_eq!(requests[0].extractors[0].extractor_type, "gjsonpath");
+        assert_eq!(requests[0].extractors[0].extractor_type, ExtractorType::GjsonPath);
         assert_eq!(requests[0].extractors[0].extract.len(), 2);
         assert_eq!(requests[0].requires_preprocessing, false); //false as no more substitution required
     }
@@ -339,5 +339,87 @@ mod tests {
         
         let requests = parse_requests(scenarios_yaml, &HashMap::default()).unwrap();
         assert_eq!(requests[0].body.formdata.len(),3);
+    }
+
+    #[test]
+    fn test_error_for_invalid_extractor_type() {
+        let scenarios_yaml = r"
+        version: 1.0
+        scenarios:
+        - name: scenario1
+          requests:
+          - name: echoGet
+            method: GET
+            url: 'https://google.com/'
+            extractors:
+            - type: jsonPath
+              from: Body
+              extract:
+                authHeader: 'headers.authorization'
+                host: 'headers.host'";
+
+        let requests = parse_requests(scenarios_yaml, &HashMap::default());
+        assert!(requests.is_err());
+        assert!(requests.err().unwrap().to_string().contains("expected one of `GjsonPath`, `Xpath`, `RegEx`, `None`"));        
+    }
+
+    #[test]
+    fn test_error_for_invalid_extractor_from() {
+        let scenarios_yaml = r"
+        version: 1.0
+        scenarios:
+        - name: scenario1
+          requests:
+          - name: echoGet
+            method: GET
+            url: 'https://google.com/'
+            extractors:
+            - type: GjsonPath
+              from: Variable
+              extract:
+                authHeader: 'headers.authorization'
+                host: 'headers.host'";
+
+        let requests = parse_requests(scenarios_yaml, &HashMap::default());
+        assert!(requests.is_err());
+        assert!(requests.err().unwrap().to_string().contains("expected `Body` or `Headers`"));        
+    }
+
+    #[test]
+    fn test_extract_from_defaults_to_body() {
+        let scenarios_yaml = r"
+        version: 1.0
+        scenarios:
+        - name: scenario1
+          requests:
+          - name: echoGet
+            method: GET
+            url: 'https://google.com/'
+            extractors:
+            - type: GjsonPath
+              extract:
+                authHeader: 'headers.authorization'";
+
+        let requests = parse_requests(scenarios_yaml, &HashMap::default()).unwrap();
+        assert_eq!(requests[0].extractors[0].from, ExtractFrom::Body);        
+    }
+
+    #[test]
+    fn test_extract_type_defaults_to_none_for_headers() {
+        let scenarios_yaml = r"
+        version: 1.0
+        scenarios:
+        - name: scenario1
+          requests:
+          - name: echoGet
+            method: GET
+            url: 'https://google.com/'
+            extractors:
+            - from: Headers
+              extract:
+                server: server";
+
+        let requests = parse_requests(scenarios_yaml, &HashMap::default()).unwrap();
+        assert_eq!(requests[0].extractors[0].extractor_type, ExtractorType::None);    
     }
 }
