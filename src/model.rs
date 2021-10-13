@@ -198,8 +198,7 @@ pub struct Extractor {
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub enum ExtractFrom {
     Body,
-    Headers,
-    Variable
+    Headers
 }
 
 impl Default for ExtractFrom {

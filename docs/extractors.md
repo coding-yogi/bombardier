@@ -1,11 +1,9 @@
 # Extractors
 Extractors are basically post-processors which can parse the http response and can extract some relevant information from the reponse which then can be used in following requests.
 
-Extraction of information from the response can be done from 3 different waus
+Extraction of information from the response can be done from 2 sources
 1. From response body
 2. From response headers
-3. From existing variable in the map
-
 
 For extraction from `body`, there are mainly 3 types of extractors supported as of now
 
@@ -133,6 +131,7 @@ Environment map will have 2 new entries added
 1. amazonTraceID = Root=1-6165831a-4bc7a6a769b2f47a0049a072
 2. amazonTraceIDRootID = 1-6165831a-4bc7a6a769b2f47a0049a072 *(1st capture group is returned)*
 
+
 ## Extraction from response header
 Here the `form` value in extractor is `Headers` instead of `Body`
 
@@ -145,11 +144,13 @@ Content-Length: 552
 ```
 
 **Defined Extractor:**
+```
 extractors:
 - from: Headers
   extract:
     content-type: "Content-Type"
     server: "Server"
+```
 
 **Output**  
 Environment map will have 2 new entries added
