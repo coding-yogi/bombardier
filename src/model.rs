@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize, Deserializer, de::Error};
 use serde_yaml::Mapping;
+use rustc_hash::FxHashMap as HashMap;
 
 //Config is the model for execution configuration
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -183,10 +184,41 @@ pub struct Body {
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct Extractor {
-    #[serde(rename = "type")]
-    pub extractor_type: String,
+    #[serde(default)]
+    pub from: ExtractFrom,
 
-    pub extract: Mapping,
+    #[serde(rename = "type")]
+    #[serde(default)]
+    pub extractor_type: ExtractorType,
+
+    #[serde(default)]
+    pub extract: HashMap<String, String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub enum ExtractFrom {
+    Body,
+    Headers
+}
+
+impl Default for ExtractFrom {
+    fn default() -> Self {
+        ExtractFrom::Body
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub enum ExtractorType {
+    GjsonPath,
+    Xpath,
+    RegEx,
+    None
+}
+
+impl Default for ExtractorType {
+    fn default() -> Self {
+        ExtractorType::None
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
