@@ -303,4 +303,3 @@ mod tests {
         assert_eq!(env_map.get("host").unwrap(), "httpbin.org");
     }
 }
-

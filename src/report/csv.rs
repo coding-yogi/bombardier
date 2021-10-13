@@ -28,3 +28,33 @@ impl CSVWriter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tempdir::TempDir;
+    use tokio::fs::File;
+    use tokio::io::AsyncReadExt; 
+    use std::str;
+
+    use super::CSVWriter;
+    use crate::report::stats::Stats;
+    
+    #[tokio::test]
+    async fn test_write_to_csv() {
+        let dir = TempDir::new("test_write_to_csv").unwrap();
+        let file_path = dir.path().join("test.csv");
+
+        let mut csv_writer = CSVWriter::new(file_path.to_str().unwrap()).await.unwrap();
+        let stats = vec![Stats::new("test", 200, 200, 1)];
+
+        csv_writer.write(&stats).await;
+
+        let mut file = File::open(file_path).await.unwrap();
+        let mut contents = vec![];
+        file.read_to_end(&mut contents).await.unwrap();
+
+        let contents = str::from_utf8(&contents).unwrap().split('\n').collect::<Vec<_>>();
+        assert!(contents[0].contains("timestamp, thread_count, status, latency, name"));
+        assert!(contents[1].contains("1, 200, 200, test"));
+    }
+} 
