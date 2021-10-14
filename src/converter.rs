@@ -8,7 +8,7 @@ use reqwest::{
         HeaderValue
     },
     Method,
-    multipart::{Form,Part}
+    multipart::{Form, Part}
 };
 use rustc_hash::FxHashMap as HashMap;
 use tokio::fs;
@@ -18,7 +18,7 @@ use std::{
     error::Error as StdError
 };
 
-use crate::model::{Request, Body};
+use crate::model::{Request, Body, FormDataFieldType};
 use crate::protocol::http::HttpClient;
 
 pub async fn convert_request(http_client: &HttpClient, request: &Request) -> Result<Reqwest, Box<dyn StdError + Send + Sync>> {
@@ -54,8 +54,8 @@ async fn get_header_map_from_request(request: &Request)
 -> Result<HeaderMap, Box<dyn std::error::Error + Send + Sync>> {
     let mut headers = HeaderMap::new();
     for header in &request.headers {
-        headers.insert(HeaderName::from_str(header.0.as_str().unwrap())?, 
-        HeaderValue::from_str(header.1.as_str().unwrap())?);
+        headers.insert(HeaderName::from_str(header.0.as_str())?, 
+        HeaderValue::from_str(header.1.as_str())?);
     }
 
     Ok(headers)
@@ -66,17 +66,24 @@ async fn add_multipart_form_data(builder: RequestBuilder, body: &Body)
     let mut form = Form::new();
 
     for data in &body.formdata {
-        let param_key = data.0.as_str().unwrap();
-        let param_value = data.1.as_str().unwrap();
+        let name = data.name.as_str();
+        let value = data.value.as_str();
 
-        if param_key.to_lowercase().starts_with("_file") {
-            let contents = fs::read_to_string(param_value).await?;
-            let file_name = get_file_name(param_value)?;
-            let part = Part::stream(contents).file_name(file_name)
-                                .mime_str("application/octet-stream").unwrap();
-            form = form.part("", part);
+        if data.field_type == FormDataFieldType::Text {
+            form = form.text(name.to_owned(), value.to_owned());
         } else {
-            form = form.text(param_key.to_owned(), param_value.to_owned());
+
+            let contents = fs::read_to_string(value).await?;
+            let file_name = get_file_name(value)?;
+            let mime_type = match &data.mime_type {
+                Some(miime_type) => miime_type,
+                None => "application/octet-stream"
+            };
+
+            let part = Part::stream(contents).file_name(file_name)
+                                .mime_str(mime_type).unwrap();
+
+            form = form.part(name.to_owned(), part);
         }
     }
 
@@ -92,7 +99,7 @@ async fn add_url_encoded_data(builder: RequestBuilder, body: &Body) -> RequestBu
     let mut params = HashMap::default();
 
     body.urlencoded.iter().for_each(|(k,v)| {
-        params.insert(k.as_str().unwrap().to_owned(), v.as_str().unwrap().to_owned());
+        params.insert(k.as_str().to_owned(), v.as_str().to_owned());
     });
 
     builder.form(&params)

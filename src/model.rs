@@ -1,5 +1,4 @@
 use serde::{Serialize, Deserialize, Deserializer, de::Error};
-use serde_yaml::Mapping;
 use rustc_hash::FxHashMap as HashMap;
 
 //Config is the model for execution configuration
@@ -134,7 +133,7 @@ pub struct Root {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Environment {
-    pub variables: Mapping
+    pub variables: HashMap<String, String>
 }
 
 #[derive(Deserialize, Debug)]
@@ -158,7 +157,7 @@ pub struct Request {
     pub method: String,
 
     #[serde(default)]
-    pub headers: Mapping,
+    pub headers: HashMap<String, String>,
 
     #[serde(default)]
     pub body: Body,
@@ -176,10 +175,39 @@ pub struct Body {
     pub raw: String,
 
     #[serde(default)]
-    pub urlencoded: Mapping,
+    pub urlencoded: HashMap<String, String>,
 
     #[serde(default)]
-    pub formdata: Mapping,
+    pub formdata: Vec<FormDataField>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct FormDataField {
+    #[serde(default)]
+    pub name: String,
+
+    #[serde(default)]
+    #[serde(rename = "type")]
+    pub field_type: FormDataFieldType,
+
+    #[serde(default)]
+    pub value: String,
+
+    #[serde(default)]
+    #[serde(rename = "mimeType")]
+    pub mime_type: Option<String>
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub enum FormDataFieldType {
+    Text,
+    File
+}
+
+impl Default for FormDataFieldType {
+    fn default() -> Self {
+        FormDataFieldType::Text
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
