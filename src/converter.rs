@@ -241,8 +241,9 @@ mod tests {
         url: 'https://google.com/'
         body:
           formdata:
-            key21: value21
-            key22: value22
+          - name: key22
+            value: value22
+            type: Text
         "#;
 
         let request = serde_yaml::from_str::<Request>(request_yaml).unwrap();
