@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::DateTime;
 use log::error;
-use serde_yaml::{Mapping, Value};
+use rustc_hash::FxHashMap as HashMap;
 
 use crate::{converter, model, protocol::http::HttpClient, report::stats, storage};
 
@@ -21,12 +21,12 @@ impl InfluxDBWriter {
         let url= format!("{}/write?db={}&precision=ms", db.url, db.name);
 
         //Setting headers
-        let mut headers = serde_yaml::Mapping::with_capacity(1);
-        headers.insert(Value::from("content-type"), Value::from("application/octet-stream"));
+        let mut headers = HashMap::default();
+        headers.insert(String::from("content-type"), String::from("application/octet-stream"));
 
          //Setting URL
          if !db.user.is_empty() {
-            headers.insert(Value::from("authorization"), Value::from(format!("Basic {}", base64::encode(format!("{}:{}",db.user,db.password)))));
+            headers.insert(String::from("authorization"), format!("Basic {}", base64::encode(format!("{}:{}",db.user,db.password))));
         }
 
         match HttpClient::get_default_async_client() {
@@ -38,8 +38,8 @@ impl InfluxDBWriter {
                     url,
                     method: String::from("POST"),
                     body: model::Body {
-                        formdata: Mapping::with_capacity(0),
-                        urlencoded: Mapping::with_capacity(0),
+                        formdata: vec![],
+                        urlencoded: HashMap::default(),
                         raw: String::from(""),
                     },
                     headers,

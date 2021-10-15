@@ -72,7 +72,7 @@ pub fn parse_env_map(content: &str) -> Result<HashMap<String, String>, Box<dyn E
     };
 
     Ok(env.variables.iter()
-        .map(|var| (var.0.as_str().unwrap().to_string(), var.1.as_str().unwrap().to_string()))
+        .map(|var| (var.0.as_str().to_string(), var.1.as_str().to_string()))
         .collect::<HashMap<String, String>>())
 }
 
@@ -175,7 +175,7 @@ mod tests {
     
         let env_map = parse_env_map(env_map_yaml);
         assert!(env_map.is_err());
-        assert!(env_map.err().unwrap().to_string().contains("variables: invalid type: unit value, expected a YAML mapping"));
+        assert!(env_map.err().unwrap().to_string().contains("variables: invalid type: unit value, expected a map"));
     }
     
     #[test]
@@ -247,8 +247,8 @@ mod tests {
         assert_eq!(requests[0].name, "echoGet");
         assert_eq!(requests[0].method, "GET");
         assert_eq!(requests[0].url, "https://google.com/");
-        assert_eq!(requests[0].headers.get(&serde_yaml::Value::from("authorization")).unwrap(), "jwt some_token_value");
-        assert_eq!(requests[0].body.urlencoded.get(&serde_yaml::Value::from("param1")).unwrap(), "param1_value");
+        assert_eq!(requests[0].headers.get("authorization").unwrap(), "jwt some_token_value");
+        assert_eq!(requests[0].body.urlencoded.get("param1").unwrap(), "param1_value");
         assert_eq!(requests[0].requires_preprocessing, true); //true as {{param2Value}} was not part of env map
     }
     
@@ -317,7 +317,6 @@ mod tests {
         assert_eq!(requests[0].body.raw,String::from(r#"{"test": "test"}"#));
     }
     
-    
     #[test]
     fn test_for_parsing_multipart_form_body() {
         let scenarios_yaml = r#"
@@ -332,13 +331,15 @@ mod tests {
               content-type: application/json
             body:
               formdata:
-                key21: value21
-                key22: value22
-                _file: '/Users/aniket.gadre/work/repos/bombardier/examples/configdev.json'
+                - name: key21
+                  value: valu21
+                - name: file
+                  value: '/Users/aniket.gadre/work/repos/bombardier/examples/configdev.json'
+                  type: File
         "#;
         
         let requests = parse_requests(scenarios_yaml, &HashMap::default()).unwrap();
-        assert_eq!(requests[0].body.formdata.len(),3);
+        assert_eq!(requests[0].body.formdata.len(),2);
     }
 
     #[test]

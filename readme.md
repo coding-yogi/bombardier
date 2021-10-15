@@ -54,27 +54,75 @@ scenarios:
       method: GET
       url: "{{baseUrl}}/get"
       headers:
-        authorization: jwt 123
+        authorization: bearer jwt
       extractors:
-        - type: gjsonpath
+        - from: Body
+          type: GjsonPath
           extract:
-            authHeader: "headers.authorization"
-            host: "headers.host"
-          
+            authHeader: "headers.Authorization"
+            host: "headers.Host" 
+        - from: Body
+          type: RegEx
+          extract:
+            contentType: 'Root=.*'
+        - from: Headers
+          extract:
+            server: server      
     - name: echoPostWithUrlEncoded
       method: POST
       url: '{{baseUrl}}/post'
       body:
         urlencoded:
-          key23: value23
-          key24: value24
+          key23: '{{Country}}'
+          key24: '{{City}}'
       extractors:
-        - type: gjsonpath
+        - type: GjsonPath
           extract:
-            keyname1: "form.key23"
-        - type: gjsonpath
+            country: "form.key23"
+        - type: GjsonPath
           extract:
-            keyname2: "form.key24"
+            city: "form.key24"
+  - name: scenario2
+    requests:
+    - name: echoPostFormData
+      method: POST
+      url: '{{baseUrl}}/post'
+      body:
+        formdata:
+        - name: key1
+          value: '{{AccentCity}}'
+      extractors:
+        - type: GjsonPath
+          extract:
+            keyname: "form.key1"
+    - name: echoPostFormDataWithFile
+      method: POST
+      url: '{{baseUrl}}/post'
+      body:
+        formdata:
+        - name: key21
+          value: key22
+        - name: file
+          value: '/Users/coding-yogi/work/repos/bombardier/examples/configdev.json'
+          type: File
+      extractors:
+        - type: GjsonPath
+          extract:
+            keyname: "files.file"
+    - name: echoPostJSON
+      method: POST
+      url: '{{baseUrl}}/post'
+      headers:
+        content-type: application/json
+      body:
+        raw: |
+          {
+            "test": "test"
+          }   
+      extractors:
+        - type: GjsonPath
+          extract:
+            keyname: "json.test"
 ```
 
 ## Environment file
@@ -82,7 +130,7 @@ Many a times there would be need to have some variables which needs to be used t
 ```
 version: 1.0
 variables:
-  baseUrl: https://postman-echo.com
+  baseUrl: https://httpbin.org
 ```
 
 Bombardier will do the necessary replacement of the values from environment file into the scenarios file at runtime
