@@ -36,7 +36,7 @@ tungstenite = "0.14.0"
 tokio-tungstenite = "0.15.0"
 url = { version = "2.2.2", features = ["serde"] }
 uuid = { version = "0.8.2", features = ["v4"]}
-warp = "0.3.1"
+warp = "0.3.3"
 
 [dev-dependencies]
 tempdir = "0.3"
